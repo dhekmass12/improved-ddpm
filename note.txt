@@ -1,0 +1,2 @@
+- The mean(x_t, t) is wrong, should have used alpha instead of alpha cum prod
+- beta cum prod denominator, it is not alpha cum prod, but aplha cum prod t.
