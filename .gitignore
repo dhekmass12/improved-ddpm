@@ -172,3 +172,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# TEX FILEs
+ddpm-en.aux
+ddpm-en.log
+ddpm-en.out
+ddpm-en.synctex.gz

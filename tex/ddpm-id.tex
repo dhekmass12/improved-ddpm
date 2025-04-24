@@ -1,0 +1,855 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2024
+
+
+% ready for submission
+\usepackage[preprint]{main}
+
+
+% to compile a preprint version, e.g., for submission to arxiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2024}
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2024}
+
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2024}
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{graphicx}	%image
+\usepackage{amsmath, nccmath}	%align
+\usepackage{tikz}
+\usepackage[fleqn,tbtags]{mathtools}
+\usepackage{cancel}
+\usepackage[mathscr]{euscript}
+\usepackage{tabto}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage[fontsize=12pt]{scrextend}
+\usepackage{bigints}
+
+\DeclarePairedDelimiterX{\infdivx}[2]{(}{)}{%
+  #1\;\delimsize\|\;#2%
+}
+\newcommand{\infdiv}{D_{KL}\infdivx}
+\newcommand*{\Scale}[2][4]{\scalebox{#1}{\ensuremath{#2}}}
+
+\input{zsupport/algo}
+\input{zsupport/english}
+\input{zsupport/figure}
+\input{zsupport/linking}
+\input{zsupport/math}
+\input{zsupport/mathenv}
+\input{zsupport/mathvar}
+\input{zsupport/refer}
+\input{zsupport/table}
+\input{zsupport/misc}
+
+% https://www.overleaf.com/learn/latex/Questions/How_do_I_add_additional_author_names_and_affiliations_to_my_paper%3F
+\usepackage{authblk}
+
+\usepackage[yyyymmdd,hhmmss]{datetime}
+
+\onehalfspacing % Reset line spacing to 1.5 from here on
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Fondasi Matematika dari Denoising Diffusion Probabilistic Models}
+
+\author{
+	Dimas Tri Kurniawan\\
+	\texttt{dimas.tri01@ui.ac.id}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\maketitle
+
+
+\begin{abstract}
+Denoising Diffusion Probabilistic Models (DDPM) merupakan salah satu pendekatan terbaru dalam generasi citra yang telah menunjukkan hasil yang mengesankan dalam menghasilkan citra berkualitas tinggi. Model ini didasarkan pada prinsip difusi terbalik, yaitu mengubah distribusi data asli menjadi distribusi noise, lalu memulihkannya kembali ke data asli melalui proses denoising bertahap. Dalam paper ini, penulis ingin mengulas lebih dalam tentang fondasi matematika dari DDPM. Penulis menganggap bahwa masih terdapat kekurangan dalam penjelasan dari fondasi matematika yang ada pada paper DDPM. Oleh karena itu, penulis tertarik untuk mengulas berbagai rumus yang digunakan sebagai fondasi dari paper tersebut.
+\end{abstract}
+
+
+\section{Pendahuluan}
+
+
+Denoising Diffusion Probabilistic Models (yang selanjutnya kita sebut Diffusion Models, untuk mempersingkat) telah muncul sebagai salah satu metode terbaru dan paling menjanjikan dalam generasi citra dan data berbasis probabilistik. Sejak pertama kali diperkenalkan, DDPM telah menunjukkan kemajuan yang signifikan dalam kualitas gambar yang dihasilkan, melampaui metode generatif lain seperti Generative Adversarial Networks (GANs) dalam hal stabilitas dan kemampuan untuk menghasilkan citra dengan detail yang sangat tinggi. Metode ini beroperasi melalui proses difusi, yang mengubah data asli menjadi noise secara bertahap, kemudian berusaha memulihkan data asli dari noise tersebut menggunakan model probabilistik. Pendekatan ini menawarkan cara yang baru dan menarik untuk memahami bagaimana model dapat mengatasi tantangan dalam generasi data, terutama dalam konteks pengolahan citra.
+
+Meskipun hasil empiris DDPM sangat menjanjikan, sebagian besar literatur yang ada cenderung fokus pada implementasi algoritmik dan teknik optimisasi tanpa memberikan penjelasan yang mendalam mengenai fondasi matematis dari model ini. Padahal, pemahaman yang lebih mendalam tentang aspek matematis DDPM sangat penting untuk meningkatkan pemahaman kita tentang bagaimana model ini berfungsi, serta untuk membuka potensi aplikasi lebih lanjut dalam berbagai domain, seperti pemodelan distribusi data dan rekonstruksi citra.
+
+Paper ini bertujuan untuk mengisi kekosongan tersebut dengan menjelaskan secara rinci dasar-dasar matematis yang mendasari Denoising Diffusion Probabilistic Models. Kami akan membahas bagaimana proses difusi terbalik bekerja dalam konteks probabilistik, serta menguraikan teori probabilitas yang relevan, termasuk peran distribusi noise dan pembelajaran berbasis optimisasi dalam meningkatkan kinerja model. Selain itu, kami juga akan menjelaskan tantangan utama yang dihadapi dalam penerapan DDPM, serta potensi arah pengembangan selanjutnya untuk model ini.
+
+Dengan memberikan wawasan yang lebih mendalam mengenai dasar-dasar matematis dari DDPM, diharapkan pembaca dapat memperoleh pemahaman yang lebih komprehensif tentang bagaimana model ini bekerja dan bagaimana potensi teknologinya dapat dimanfaatkan di masa depan.
+
+
+\section{Latar Belakang}
+
+
+Diffusion models terdiri dari 2 proses utama, yaitu Forward/Diffusion Process dan Reverse Diffusion Process.
+
+
+\subsection{Forward Process}
+
+
+Forward process/diffusion process adalah proses di mana kita menambahkan noise secara berkala ke sebuah gambar sampai gambar tersebut konvergen ke distribusi gaussian dengan mean 0 dan variance 1. Dengan kata lain, gambar tersebut akan menjadi pure noise setelah t langkah. Forward process didefinisikan dengan Markov chain yang menambahkan Gaussian noise secara berkala:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+q(\textbf{x}_{1:T}|\textbf{x}_{0}) \coloneq \displaystyle \prod_{t=1}^{T} q(\textbf{x}_{t}|\textbf{x}_{t-1}) }
+\end{equation}
+
+Persamaan (1) bermaksud bahwa kita ingin mencari distribusi gambar yang telah diberikan noise $ \textbf{x}_{1} $ sampai $ \textbf{x}_{T} $ jika diketahui gambar asli $ \textbf{x}_{0} $. Karena menggunakan asumsi Markov, gambar/state sebelumnya tidak diperlukan sehingga persamaan yang seharusnya:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+q(\textbf{x}_{1:T}|\textbf{x}_{0}) \coloneq  \frac{q(\textbf{x}_{T}|\textbf{x}_{T-1},\textbf{x}_{T-2},\textbf{x}_{T-3},...,\textbf{x}_{0}) \ q(\textbf{x}_{T-1}|\textbf{x}_{T-2},\textbf{x}_{T-3},\textbf{x}_{T-4},...,\textbf{x}_{0}) \ ... \ q(\textbf{x}_{0})  } {  q(\textbf{x}_{0}) }, }
+\end{equation}
+
+dapat kita sederhanakan dengan menghilangkan state sebelumnya:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \frac{q(\textbf{x}_{T}|\textbf{x}_{T-1},\cancel{\textbf{x}_{T-2}},\cancel{\textbf{x}_{T-3}},\cancel{...},\cancel{\textbf{x}_{0}}) \ q(\textbf{x}_{T-1}|\textbf{x}_{T-2},\cancel{\textbf{x}_{T-3}},\cancel{\textbf{x}_{T-4}},\cancel{...},\cancel{\textbf{x}_{0}}) \ ... \ \cancel{ q(\textbf{x}_{0}) } } {  \cancel{ q(\textbf{x}_{0}) } } } 
+\end{equation}
+
+menjadi:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \displaystyle \prod_{t=1}^{T} q(\textbf{x}_{t}|\textbf{x}_{t-1}) }
+\end{equation}
+
+Forward process menambahkan Gaussian noise secara berkala berdasarkan linear variance schedule $ \beta_1, \beta_2, \beta_3, ..., \beta_t $:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+q(\textbf{x}_{t}|\textbf{x}_{t-1}) \coloneq \mathscr{N}(\textbf{x}_{t};\sqrt{1-\beta_t}\textbf{x}_{t-1},\beta_t \textbf{I}), }
+\end{equation}
+
+dengan $ \textbf{x}_{t} $ adalah output, $ \sqrt{1-\beta_t} $ mean, dan $ \beta_t $ variance dari $ \textbf{x}_{t} $. Melalui reparameterization trick $ \mathscr{N}(\mu,\sigma^2) = \mu + \sigma \epsilon $, persamaan di atas dapat ditulis kembali menjadi:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{1-\beta_t}\textbf{x}_{t-1} + \sqrt{\beta_t}\epsilon_{t-1}. }
+\end{equation}
+
+Didefinisikan $ \alpha_t \coloneq 1 - \beta_t $, maka persamaan di atas menjadi:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t}\textbf{x}_{t-1} + \sqrt{1-\alpha_t}\epsilon_{t-1}. }
+\end{equation}
+
+Subtitusi $ \textbf{x}_{t-1} $:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t} (\sqrt{\alpha_{t-1}} \textbf{x}_{t-2} + \sqrt{1-\alpha_{t-1}} \epsilon_{t-2}) + \sqrt{1-\alpha_t}\epsilon_{t-1} }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t \alpha_{t-1}} \textbf{x}_{t-2} + \sqrt{\alpha_t - \alpha_t\alpha_{t-1}} \epsilon_{t-2} + \sqrt{1-\alpha_t}\epsilon_{t-1} }
+\end{equation}
+
+Jika dua 2 gaussian noise $ \mathscr{N}(\mu,\sigma_1^2) $ dan $ \mathscr{N}(\mu,\sigma_2^2) $ ditambahkan, maka hasilnya yaitu $ \mathscr{N}(\mu,(\sigma_1^2 + \sigma_2^2)) $. Ubah 2 term terakhir:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t \alpha_{t-1}} \textbf{x}_{t-2} + \sqrt{\alpha_t - \alpha_t\alpha_{t-1} + 1-\alpha_t} \epsilon }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t \alpha_{t-1}} \textbf{x}_{t-2} + \sqrt{1-\alpha_t\alpha_{t-1}} \epsilon }
+\end{equation}
+
+Subtitusi $ \textbf{x}_{t-2} $:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t \alpha_{t-1} \alpha_{t-2}} \textbf{x}_{t-3} + \sqrt{1-\alpha_t\alpha_{t-1}\alpha_{t-2}} \epsilon. }
+\end{equation}
+
+Subtitusi $ \textbf{x}_{t-3} $:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t \alpha_{t-1} \alpha_{t-2} \alpha_{t-3}} \textbf{x}_{t-4} + \sqrt{1-\alpha_t\alpha_{t-1}\alpha_{t-2}\alpha_{t-3}} \epsilon }
+\end{equation}
+
+Jika kita terus subtitusi  sampai dengan $ \textbf{x}_{1} $:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{4.75em} \coloneq \sqrt{\alpha_t \alpha_{t-1} \alpha_{t-2} \alpha_{t-3} ... \alpha_{1}} \textbf{x}_{0} + \sqrt{1-\alpha_t\alpha_{t-1}\alpha_{t-2}\alpha_{t-3}...\alpha_{1}} \epsilon }
+\end{equation}
+
+Diberikan definisi $ \bar{\alpha_t} \coloneq \displaystyle \prod_{t=1}^{T} \alpha_t $, maka:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+q(\textbf{x}_{t}|\textbf{x}_{t-1}) \coloneq \sqrt{\bar{\alpha_t}} \textbf{x}_{0} + \sqrt{1-\bar{\alpha_t}} \epsilon }
+\end{equation}
+
+Penyederhaan $ q(\textbf{x}_{t}|\textbf{x}_{t-1}) $ menjadi persamaan (2) membuat rumus menjadi lebih mudah diselesaikan. Daripada melakukan iterasi dari $ \textbf{x}_{T} $ sampai $ \textbf{x}_{t-1} $, kita cukup menentukan $ \bar{\alpha_t} $, lalu subtitusi ke persamaan (2).
+
+
+\subsection{Reverse Process}
+
+
+Diffusion models adalah sebuah model latent variable dalam bentuk $ p_\theta(\textbf{x}_0) \coloneq \int p_\theta(\textbf{x}_{0:T}) \,d_{\textbf{x}_{1:T}} $, di mana $ \textbf{x}_1,\textbf{x}_2,\textbf{x}_3,...,\textbf{x}_T $ adalah latents dengan dimentionality yang sama dengan data $ \textbf{x}_0 \sim q(\textbf{x}_0) $. Joint distribution $ p_\theta(\textbf{x}_{0:T}) $ adalah reverse process:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+p_\theta(\textbf{x}_{0:T}) \coloneq p_\theta(\textbf{x}_0|\textbf{x}_1,\textbf{x}_2,\textbf{x}_3,...,\textbf{x}_T) \ p_\theta(\textbf{x}_1|\textbf{x}_2,\textbf{x}_3,\textbf{x}_4,...,\textbf{x}_T) \ ... \  p(\textbf{x}_{T}) }
+\end{equation}
+
+Sama seperti forward process, reverse process didefinisikan sebagai Markov chain:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{3.75em} \coloneq p_\theta(\textbf{x}_0|\textbf{x}_1,\cancel{\textbf{x}_2},\cancel{\textbf{x}_3},\cancel{...},\cancel{\textbf{x}_T}) \ p_\theta(\textbf{x}_1|\textbf{x}_2,\cancel{\textbf{x}_3},\cancel{\textbf{x}_4},\cancel{...},\cancel{\textbf{x}_T}) \ ... \  p(\textbf{x}_{T}), }
+\end{equation}
+
+sehingga kita mendapatkan persamaan akhir:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+p_\theta(\textbf{x}_{0:T}) \coloneq p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t}). }
+\end{equation}
+
+Sejauh ini, kita tidak tahu distribusi asli dari reverse process. Oleh karena itu, kita menggunakan aproksimasi $ p_\theta $ yang nantinya akan dipelajari oleh neural network. Khusus untuk $ \textbf{x}_{T} $, kita tidak menggunakan aproksimasi $ p_\theta $ karena kita tahu nilai asli dari $ \textbf{x}_{T} $.
+
+Reverse process merupakan Gaussian transition dengan $ \mu $ dan $ \sigma^2 $ yang akan dipelajari selanjutnya, dimulai dari $ p(\textbf{x}_T) = \mathscr{N}(\textbf{x}_T;0,\textbf{I}) $, yaitu pure noise dengan mean 0 dan variance 1 (matriks identitas):
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t}) \coloneq \mathscr{N}(\textbf{x}_{t-1};\mu_\theta(\textbf{x}_{t},t),\Sigma_\theta(\textbf{x}_t,t)) }
+\end{equation}
+
+Namun, author dari paper DDPM memutuskan untuk memberikan nilai yang pasti pada $ \sigma^2 $ berdasarkan linear schedule. Dengan kata lain, $ \sigma $ tidak perlu dipelajari pada reverse process.
+
+
+\section{Loss Function}
+
+
+Kita tidak mengetahui distribusi dari reverse process. Untuk itu, kita akan melatih model agar dapat melakukan aproksimasi distribusi dari p sebaik mungkin. Ternyata, kita dapat mencari lower bound menggunakan cara yang sama pada Variational Autoencoder (VAE). Untuk itu, kita akan mempelajari apa itu Latent Variable, Deep Latent Variable Models, VAE, dan apa koneksinya dengan DDPM.
+
+
+\subsection{Latent Variable}
+
+
+Latent variable adalah variable yang merupakan bagian dari model, tetapi tidak dapat kita observasi karena sifatnya yang hidden/tersembunyi. Oleh karena itu, latent variable bukan bagian dari dataset. Biasanya, kita mendefinisikan $ \textbf{z} $ sebagai latent variable dan $ \textbf{x} $ sebagai observed variable. Distribusi marginal dari observed variables $ p_\theta(x) $, yaitu:
+\begin{equation}
+\Scale[1.2]{\displaystyle p_\theta(x) = \int p_\theta(x,z) dz }
+\end{equation}
+
+
+\subsection{Deep Latent Variable Models}
+
+
+Deep Latent Variable Models (DLVM) adalah latent variable model $ p_\theta(x,y) $ yang distribusinya terparameterisasi oleh neural network. 
+DVLM yang sering dijumpai (dan mungkin yang paling mudah) yaitu:
+\begin{equation}
+\Scale[1.2]{ p_\theta(x,z) = p_\theta(z) \ p_\theta(x|z) }
+\end{equation}
+
+
+\subsection{Intractabilities}
+
+
+Kendala utama untuk mencari $ p_\theta(z|x) $ yaitu baik $ p_\theta(x, z) $ dan $ p_\theta(x) $ intractable dalam DLVM sehingga $ p_\theta(z|x) $ menjadi intractable. Oleh karena itu, dibutuhkan teknik approximate inference agar kita dapat mengaproksimasi posterior $ p_\theta(z|x) $. Untuk mengubah posterior inference yang intractable pada DVLM menjadi trackable, kita akan menggunakan sebuah parametric inference model $ q_\phi(z|x) $. Model ini dikenal juga dengan sebutan encoder atau recognition model. Kita menggunakan $ \phi $ sebagai sebuah parameter dari inference model tersebut dan dapat kita sebut juga variational parameters. Selanjutnya, kita akan mengoptimasi variational parameters $ \phi $ agar:
+\begin{equation}
+\Scale[1.2]{ q_\phi(z|x) \approx p_\theta(z|x) }
+\end{equation}
+Kedepannya, aproksimasi terhadap posterior ini akan membantu kita dalam mengoptimasi marginal likelihood.
+
+
+\subsection{VAE}
+
+
+VAE adalah salah satu contoh dari DLVM. VAE menggunakan deep neural networks untuk memparameterisasi distribusi probabilitas yang mendefinisikan latent variable model.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\textwidth]{fig/vae.png}
+    \caption{
+	VAE mempelajari stochastic mapping antara observed x-space yang distribusi empirisnya $ q_D(x) $ biasanya rumit dan sebuah latent z-spaceyang distribusinya relatif mudah (misalnya bola, seperti pada gambar). Genarative model mempelajari joint distribution $ p_\theta(x, z) $ yang seringkali (tapi tidak selalu)
+	difaktorkan menjadi $ p_\theta(x, z) = p_\theta(z) \ p_\theta(x|z) $, dengan sebuah prior distribution over latent space
+	$ p_\theta(z) $, dan sebuah stochastic decoder $ p_\theta(x|z) $. Stochastic encoder tersebut, $ q_\phi(z|x) $, disebut juga
+	inference model, mengaproksimasi true intractable posterior $ p_\theta(z|x) $ dari generative model.
+    }
+    \label{fig:vae}
+\end{figure}
+
+Perhatikan DVLM berikut:
+\begin{equation}
+\Scale[1.2]{ \displaystyle p_\theta(x) = \int p_\theta(x,z) \,dz }
+\end{equation}
+Untuk sembarang inference model $ q_\phi(z|x) $ dan juga sembarang variational parameters $ \phi $:
+\begin{equation}
+\Scale[1.2]{ \displaystyle p_\theta(x) = \int p_\theta(x,z) \frac{q_\phi(z|x)}{q_\phi(z|x)} \,dz }
+\end{equation}
+Karena $ q_\phi(z|x) \approx p_\theta(z|x) $:
+\begin{equation}
+\Scale[1.2]{ \displaystyle p_\theta(x) = \int p_\theta(x,z) \frac{q_\phi(z|x)}{p_\theta(z|x)} \,dz }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle p_\theta(x) = \mathbb{E}_{q_\phi(z|x)} \left[ \frac{p_\theta(x,z)}{p_\theta(z|x)} \right] }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{\displaystyle \log p_\theta(x) = \log \mathbb{E}_{q_\phi(z|x)} \left[ \frac{p_\theta(x,z)}{p_\theta(z|x)} \right] }
+\end{equation}
+Logaritma merupakan fungsi concave. Hal ini dapat dibuktikan karena turunan kedua dari logaritma adalah negatif. Oleh sebab itu, berlaku: $ \log \mathbb{E}_{q_\phi(z|x)} \left[ \frac{p_\theta(x,z)}{p_\theta(z|x)} \right] = \mathbb{E}_{q_\phi(z|x)} \left[ \log \frac{p_\theta(x,z)}{p_\theta(z|x)} \right] $, sehingga:
+\begin{equation}
+\Scale[1.2]{\displaystyle \log p_\theta(x) = \mathbb{E}_{q_\phi(z|x)} \left[ \log \frac{p_\theta(x,z)}{p_\theta(z|x)} \right] }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{\displaystyle \log p_\theta(x) = \mathbb{E}_{q_\phi(z|x)} 
+\left[ \log \left[ \frac{p_\theta(x,z)}{q_\phi(z|x)} \frac{q_\phi(z|x)}{p_\theta(z|x)} \right] \right] }
+\end{equation}
+\begin{equation} \label{eq:13}
+\Scale[1.2]{\displaystyle \log p_\theta(x) = 
+\mathbb{E}_{q_\phi(z|x)} \left[ \log \frac{p_\theta(x,z)}{q_\phi(z|x)} \right]
++
+\mathbb{E}_{q_\phi(z|x)} \left[ \log \frac{q_\phi(z|x)}{p_\theta(z|x)} \right]
+}
+\end{equation}
+
+Term kedua pada persamaan (\ref{eq:13}) merupakan Kullback-Leibler (KL) divergence antara $ q_\phi(z|x) $ dan $ p_\theta(z|x) $ yang sifatnya non-negative:
+\begin{equation}
+\Scale[1.2]{ \displaystyle \infdiv{q_\phi(z|x)}{p_\theta(z|x)} \geq 0}
+\end{equation}
+dan bernilai 0 jika dan hanya jika $ q_\phi(z|x) $ sama dengan distribusi true posterior.
+\\
+Term pertama pada persamaan (\ref{eq:13}) adalah variational lower bound atau bisa juga disebut dengan evidence lower bound (ELBO):
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathcal{L}_{\theta,\phi}(x) = \mathbb{E}_{q_\phi(z|x)} \left[ \log \frac{p_\theta(x,z)}{q_\phi(z|x)} \right] }
+\end{equation}
+Karena KL divergence bersifat non-negatif, maka ELBO adalah lower bound dari log-likelihood dari data.                                                                                                                                                                                                                                                                                                                                                                             
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathcal{L}_{\theta,\phi}(x) = \log p_\theta(x) -  \infdiv{q_\phi(z|x)}{p_\theta(z|x)}}
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathcal{L}_{\theta,\phi}(x) \leq \log p_\theta(x) },
+\end{equation}
+sehingga persamaan (\ref{eq:13}) dapat kita sederhanakan:
+\begin{equation}
+\Scale[1.2]{\displaystyle \log p_\theta(x) = 
+\mathcal{L}_{\theta,\phi}(x)
++
+ \infdiv{q_\phi(z|x)}{p_\theta(z|x)}
+}
+\end{equation}
+\begin{equation}
+\Scale[1.2]{\displaystyle \log p_\theta(x) \leq 
+\log p_\theta(x)
++
+ \infdiv{q_\phi(z|x)}{p_\theta(z|x)}
+}
+\end{equation}
+
+
+\subsection{DDPM}
+
+
+Kita dapat mengoptimasi log-likelihood menggunakan cara yang mirip pada VAE. Perhatikan DLVM berikut:
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log p_\theta(x) = \log \int p_\theta(x,z) \,dz }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log p_\theta(x) = \log \int p_\theta(x,z) \frac{q(z|x)}{q(z|x)} \,dz }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log p_\theta(x) = \log \mathbb{E}_{q(z|x)} \left[ \frac{p_\theta(x,z)}{q(z|x)} \right] }
+\end{equation}
+Logaritma merupakan fungsi concave. Hal ini dapat dibuktikan karena turunan kedua dari logaritma adalah negatif. Oleh sebab itu, berlaku: $ \log \mathbb{E}_{q(z|x)} \left[ \frac{p_\theta(x,z)}{q(z|x)} \right] = \mathbb{E}_{q(z|x)} \left[ \log \frac{p_\theta(x,z)}{q(z|x)} \right] $, sehingga:
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log p_\theta(x) \geq \mathbb{E}_{q(z|x)} \left[\log \frac{p_\theta(x,z)}{q(z|x)} \right] }
+\end{equation}
+
+Kita dapat menerapkan hal yang sama pada diffusion models. Perbedaannya, latent variable yang kita gunakan yaitu $ \textbf{x}_{1:T} $ dan juga observed variable $ \textbf{x}_0 $. Kita juga tidak lagi mencari loss function, melainkan ekspektasi dari loss function.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{fig/reverse-process.png}
+    \caption{reverse process}
+    \label{fig:reverse_process}
+\end{figure}
+Disamping itu, kita tidak memaksimalkan log-likelihood, melainkan meminimalkan negative log-likelihood. Sebenarnya, kedua hal tersebut sama. Namun, optimizer biasanya meminimalkan fungsi sehingga akan lebih cocok jika kita menggunakan negative log-likelihood. Seperti namanya, yaitu loss function, kita ingin meminimalkan fungsi ini sekecil mungkin.
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathbb{E}_{q(\mathbf{x}_0)} \left[ -\log p_\theta(x_0) \right] = 
+\mathbb{E}_{q(\mathbf{x}_0)} \left[
+-\log \mathbb{E}_{q(\textbf{x}_{1:T}|\textbf{x}_0)} \left[ \frac{p_\theta(\textbf{x}_{0:T})}{q(\textbf{x}_{1:T}|\textbf{x}_0)} \right] \right] }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathbb{E}_{q(\mathbf{x}_0)} \left[ -\log p_\theta(x_0) \right] \leq
+\mathbb{E}_{q(\mathbf{x}_0)} \left[
+\mathbb{E}_{q(\textbf{x}_{1:T}|\textbf{x}_0)} \left[ -\log \frac{p_\theta(\textbf{x}_{0:T})}{q(\textbf{x}_{1:T}|\textbf{x}_0)} \right] \right] }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathbb{E}_{q(\mathbf{x}_0)} \left[ -\log p_\theta(x_0) \right] \leq 
+\mathbb{E}_{q(\mathbf{x}_0)} \left[
+\mathbb{E}_{q(\textbf{x}_{1:T}|\textbf{x}_0)} \left[ \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} \right] \right] }
+\end{equation}
+\begin{equation}
+\Scale[1.2]{ \displaystyle \mathbb{E}_{q(\mathbf{x}_0)} \left[ -\log p_\theta(x_0) \right] \leq 
+\mathbb{E}_{q(\textbf{x}_{0:T})} \left[ \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} \right] }
+\end{equation}
+
+Selanjutnya, kita dapat melakukan optimasi pada term yang berada di dalam ekspektasi.
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{\displaystyle \prod_{t=1}^{T} q(\textbf{x}_{t}|\textbf{x}_{t-1})}{p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})} }
+\end{equation}
+
+$ q(\textbf{x}_{t}|\textbf{x}_{t-1}) $ dapat kita ubah menjadi $ \frac{q(\textbf{x}_{t-1}|\textbf{x}_t) \ q(\textbf{x}_t) }{ q(\textbf{x}_{t-1}) } $. Namun, $ q(\textbf{x}_{t-1}|\textbf{x}_t) $ akan memiliki variance yang tinggi karena kandidat untuk $ \textbf{x}_{t} $ bisa bermacam-macam.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\textwidth]{fig/high-variance-vs-low-variance.png}
+    \caption{high variance vs. low variance}
+    \label{fig:high-variance-vs-low-variance}
+\end{figure}
+
+Oleh karena itu, kita akan menambahkan gambar asli $ \textbf{x}_0 $ agar kandidat untuk $ \textbf{x}_{t-1} $ dapat menyesuaikan gambar aslinya.
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{\displaystyle \prod_{t=1}^{T} q(\textbf{x}_{t}|\textbf{x}_{t-1},\textbf{x}_0) } { p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})} }
+\end{equation}
+
+Namun, terdapat hal yang janggal. Jika kita teliti lebih dalam, term pertama pada numerator mengandung self-loop! Lebih tepatnya, $ q(\textbf{x}_1|\textbf{x}_0,\textbf{x}_0) = \frac{q(\textbf{x}_0|\textbf{x}_1,\textbf{x}_0) \ q(\textbf{x}_1|\textbf{x}_0) }{ q(\textbf{x}_0|\textbf{x}_0) } $. Untuk mengatasi hal ini, keluarkan term pertama dari product series. Setelah itu, kita baru bisa menambahkan $ \textbf{x}_0 $ pada conditional probability di product series.
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} =\xcancel{ \log \frac{\displaystyle \prod_{t=1}^{T} q(\textbf{x}_{t}|\textbf{x}_{t-1},\textbf{x}_0) } { p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})} } }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{q(\textbf{x}_1|\textbf{x}_0) \displaystyle \prod_{t=2}^{T} q(\textbf{x}_{t}|\textbf{x}_{t-1},\textbf{x}_0) } { p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})} }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{q(\textbf{x}_1|\textbf{x}_0) \displaystyle \prod_{t=2}^{T} q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0) \ q(\textbf{x}_{t}|\textbf{x}_0) } { q(\textbf{x}_{t-1}|\textbf{x}_0) \ p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})} }
+\end{equation}
+
+\begin{gather}
+\nonumber \Scale[1]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} } = \\
+\Scale[1]{ \displaystyle \log \frac{ 
+\cancel{q(\textbf{x}_1|\textbf{x}_0)}
+\ q(\textbf{x}_{T-1}|\textbf{x}_T,\textbf{x}_0) \ q(\textbf{x}_T|\textbf{x}_0) 
+\ q(\textbf{x}_{T-2}|\textbf{x}_{T-1},\textbf{x}_0) \ \cancel{q(\textbf{x}_{T-1}|\textbf{x}_0)} 
+\ ...
+\ q(\textbf{x}_{1}|\textbf{x}_{2},\textbf{x}_0) \ \cancel{q(\textbf{x}_{2}|\textbf{x}_0)} 
+} 
+{ 
+\cancel{q(\textbf{x}_{T-1}|\textbf{x}_0)} 
+\ q(\textbf{x}_{T-2}|\textbf{x}_0)
+\ ...
+\ \cancel{q(\textbf{x}_{2}|\textbf{x}_0)}
+\ \cancel{q(\textbf{x}_{1}|\textbf{x}_0)}
+\ p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t}) } }
+ \end{gather}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{
+q(\textbf{x}_T|\textbf{x}_0) \displaystyle \prod_{t=2}^{T} q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+} 
+{ 
+p(\textbf{x}_T) \displaystyle \prod_{t=1}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+} }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{
+q(\textbf{x}_T|\textbf{x}_0) \displaystyle \prod_{t=2}^{T} q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+} 
+{ 
+p(\textbf{x}_T) \ p_\theta(\textbf{x}_0|\textbf{x}_1) \displaystyle \prod_{t=2}^{T} p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+} }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} = \log \frac{
+q(\textbf{x}_T|\textbf{x}_0)
+} 
+{ 
+p(\textbf{x}_T)
+} + 
+\sum_{t=2}^{T} \log \frac{
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+} -
+\log p_\theta(\textbf{x}_0|\textbf{x}_1)
+}
+\end{equation}
+
+Masukkan kembali $ \log \frac{q(\textbf{x}_{1:T}|\textbf{x}_0)}{p_\theta(\textbf{x}_{0:T})} $ pada loss function:
+\begin{equation}
+\Scale[1.2]{ \displaystyle -\log p_\theta(\textbf{x}_0) \leq \mathbb{E}_{q(\textbf{x}_{1:T}|\textbf{x}_0)} \left[ 
+\log \frac{
+q(\textbf{x}_T|\textbf{x}_0)
+} 
+{ 
+p(\textbf{x}_T)
+} + 
+\sum_{t=2}^{T} \log \frac{
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+} -
+\log p_\theta(\textbf{x}_0|\textbf{x}_1)
+\right]. }
+\end{equation}
+
+Ubah setiap term pada loss function ke bentuk KL (Kullback–Leibler divergence) divergence:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\mathbb{E}_{q(\textbf{x}_{1:T}|\textbf{x}_0)} \left[ 
+\log \frac{
+q(\textbf{x}_T|\textbf{x}_0)
+} 
+{ 
+p(\textbf{x}_T)
+} + 
+\sum_{t=2}^{T} \log \frac{
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+} -
+\log p_\theta(\textbf{x}_0|\textbf{x}_1)
+\right] 
+}
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle = 
+\mathbb{E}_{q(\textbf{x}_{1:T}|\textbf{x}_0)} \left[ 
+\infdiv{q(\textbf{x}_T|\textbf{x}_0)}{p(\textbf{x}_T)}
++ 
+\sum_{t=2}^{T} \infdiv{ 
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+}
+-
+\log p_\theta(\textbf{x}_0|\textbf{x}_1)
+\right]
+}
+\end{equation}
+
+Didapatkan:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+{\small L = 
+\mathbb{E}_{q} \left[ 
+\infdiv{q(\textbf{x}_T|\textbf{x}_0)}{p(\textbf{x}_T)}
++ 
+\sum_{t=2}^{T} \infdiv{ 
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+}
+-
+\log p_\theta(\textbf{x}_0|\textbf{x}_1)
+\right]
+} }
+\end{equation}
+dengan 
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0) = \mathscr{N}(\textbf{x}_{t-1};\tilde{\mu}_t(\textbf{x}_{t},\textbf{x}_0),\tilde{\beta}_t\textbf{I}), }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\tilde{\mu}_t(\textbf{x}_{t},\textbf{x}_0) \coloneq \frac{
+\sqrt{\bar{\alpha}_{t-1}}\beta_t
+}
+{
+1 - \bar{\alpha}_t
+}
+\textbf{x}_0 
++
+\frac{
+\sqrt{\alpha_{t}}(1-\bar{\alpha}_{t-1})
+}
+{
+1 - \bar{\alpha_t}
+}
+\textbf{x}_t, }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\tilde{\beta}_t \coloneq 
+\frac{
+1-\bar{\alpha}_{t-1}
+}
+{
+1-\bar{\alpha}
+}
+\beta_t. }
+\end{equation}
+
+Kita dapat menguraikan L menjadi:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_T = 
+\infdiv{q(\textbf{x}_T|\textbf{x}_0)}{p(\textbf{x}_T)}. }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{t-1} = 
+\infdiv{ 
+q(\textbf{x}_{t-1}|\textbf{x}_t,\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t})
+}. }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{0} = 
+\log p_\theta(\textbf{x}_0|\textbf{x}_1). }
+\end{equation}
+
+
+\subsection{Forward process dan $ L_T $}
+Sebenarnya, $ \beta_t $ dapat dipelajari melalui reparameterization. Namun, nilai $ \beta_t $ akan dibuat tetap menjadi konstanta sehingga q tidak ada parameter yang dapat dipelajari. Hal ini membuat $ L_T $ menjadi konstan selama training dan dapat diabaikan.
+
+
+\subsection{Reverse process dan $ L_{1:T-1} $}
+Kita ingin mempelajari mean dan variance dari reverse diffusion process $ p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t}) = \mathscr{N}(\textbf{x}_{t-1};\mu_\theta(\textbf{x}_{t},t),\Sigma_\theta(\textbf{x}_t, t)) $, dengan $ 1 < t < T  $. Di sini, author memutuskan untuk tidak mempelajari variance dan menjadikannya konstanta:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\Sigma_\theta(\textbf{x}_t, t) = \sigma_t^2 \textbf{I} }
+\end{equation}
+
+sehingga
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+ p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t}) = \mathscr{N}(\textbf{x}_{t-1};\mu_\theta(\textbf{x}_{t},t),\sigma_t^2 \textbf{I}) }
+\end{equation}
+
+Untuk merepresentasikan mean $ \mu_\theta(\textbf{x}_{t},t) $, penulis DDPM melakukan parameterisasi berdasarkan analisis terhadap $ L_t $, yaitu $
+\infdiv{ 
+q(\textbf{x}_{t}|\textbf{x}_{t+1},\textbf{x}_0)
+}
+{
+p_\theta(\textbf{x}_{t}|\textbf{x}_{t+1})
+}
+$, dengan menggunakan mean square error:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{t-1} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\tilde{\mu}_t(\textbf{x}_{t},\textbf{x}_0) - \mu_\theta(\textbf{x}_{t},t)
+}^2
+\right] + C, }
+\end{equation}
+
+dengan C adalah konstanta yang tidak bergantung pada $ \theta $. Subtitusi $ \tilde{\mu}_t(\textbf{x}_{t},\textbf{x}_0) $ pada (12):
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{t-1} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\frac{
+\sqrt{\bar{\alpha}_{t-1}}\beta_t
+}
+{
+1 - \bar{\alpha}_t
+}
+\textbf{x}_0 
++
+\frac{
+\sqrt{\alpha_{t}}(1-\bar{\alpha}_{t-1})
+}
+{
+1 - \bar{\alpha_t}
+}
+\textbf{x}_t 
+-
+ \mu_\theta(\textbf{x}_{t},t)
+}^2
+\right] + C, }
+\end{equation}
+
+Pada persamaan (2), kita telah diperlihatkan bagaimana mencari $ \textbf{x}_t $ jika diberikan $ \textbf{x}_0 $. Persamaan tersebut dapat kita gunakan untuk mencari $ \textbf{x}_0 $:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\textbf{x}_t = \sqrt{\bar{\alpha_t}} \textbf{x}_{0} + \sqrt{1-\bar{\alpha_t}} \epsilon}
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\iff \textbf{x}_0 = \frac{1}{\sqrt{\bar{\alpha_t}}}(\textbf{x}_{t} - \sqrt{1-\bar{\alpha}_t} \epsilon) }
+\end{equation}
+
+Subtitusi $ \textbf{x}_0 $ pada (14):
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{t-1} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\frac{
+\sqrt{\bar{\alpha}_{t-1}}\beta_t
+}
+{
+1 - \bar{\alpha}_t
+}
+\frac{1}{\sqrt{\bar{\alpha_t}}}(\textbf{x}_{t} - \sqrt{1-\bar{\alpha}_t} \epsilon)
++
+\frac{
+\sqrt{\alpha_{t}}(1-\bar{\alpha}_{t-1})
+}
+{
+1 - \bar{\alpha_t}
+}
+\textbf{x}_t 
+-
+\mu_\theta(\textbf{x}_{t},t)
+}^2
+\right] + C }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{2em} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\frac{1}{\sqrt{\bar{\alpha}_t}}(\textbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon)
+-
+\mu_\theta(\textbf{x}_{t},t)
+}^2
+\right] + C 
+}
+\end{equation}
+
+Penulis DDPM mereparameterisasi $ x_t $ agar dapat memprediksi noise pada reverse diffusion process:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{2em} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t(\textbf{x}_0,\epsilon ) - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon)
+-
+\mu_\theta(\textbf{x}_t(\textbf{x}_0,\epsilon),t)
+}^2
+\right] + C, }
+\end{equation}
+
+dengan $ \textbf{x}_t(\textbf{x}_0,\epsilon) = \sqrt{\bar{\alpha}_t}\textbf{x}_0 + \sqrt{1-\bar{\alpha}_t}\epsilon, \hspace{1em} \epsilon \sim\mathscr{N}(0,\textbf{I}). $
+Persamaan (10) memperlihatkan bahwa $ \mu_\theta $ harus memprediksi $ \frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t(\textbf{x}_0,\epsilon ) - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon) $, diberikan $ \textbf{t} $. Karena $ \textbf{t} $ sudah ada sebagai input, kita dapat melakukan parameterisasi sebagai berikut:
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\mu_\theta(\textbf{x}_{t},t) = \bar{\mu}_t(\textbf{x}_{t}, \textbf{x}_0(\textbf(x)_t, \epsilon_\theta)) }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{2em} = \bar{\mu}_t(\textbf{x}_{t}, \frac{1}{\sqrt{\bar{\alpha_t}}}(\textbf{x}_{t} - \sqrt{1-\bar{\alpha}_t} \epsilon_\theta(\textbf{x}_t))) }
+\end{equation}
+
+\begin{fleqn}[\parindent]
+\begin{equation}
+\begin{split}
+\hspace{2.25em} = \frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(\textbf{x}_t, t))
+\end{split}
+\end{equation}
+\end{fleqn}
+
+Subtitusi persamaan (16) pada persamaan (15):
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{t-1} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon)
+-
+\mu_\theta(\textbf{x}_t,t)
+}^2
+\right] + C }
+\end{equation}
+
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\hspace{2.25em} = \mathbb{E}_{q} \left[ 
+\frac{1}{2\sigma_t^2}
+\norm{
+\frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon)
+-
+\frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(\textbf{x}_t, t))
+}^2
+\right] + C }
+\end{equation}
+
+\begin{fleqn}[\parindent]
+\begin{equation}
+\begin{split}
+\hspace{2.25em} = \mathbb{E}_{q} \left[ 
+\frac{\beta_t^2}{2\sigma_t^2\alpha_t(1-\bar{\alpha}_t)}
+\norm{
+\epsilon
+-
+\epsilon_\theta(\textbf{x}_t, t)
+}^2
+\right] + C
+\end{split}
+\end{equation}
+\end{fleqn}
+
+Setelah melakukan percobaan, ternyata penulis DDPM berpendapat bahwa menghilangkan term pertama pada (17) pada proses training akan meningkatkan kualitas sample dan juga lebih mudah dalam implementasi:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+L_{simple}(\theta) \coloneq \mathbb{E}_{q} \left[ 
+\norm{
+\epsilon
+-
+\epsilon_\theta(\textbf{x}_t, t)
+}^2
+\right] }
+\end{equation}
+
+Recall $ p_\theta(\textbf{x}_{t-1}|\textbf{x}_{t}) = \mathscr{N}(\textbf{x}_{t-1};\mu_\theta(\textbf{x}_{t},t),\Sigma_\theta(\textbf{x}_t, t)) $, kita dapat mensample $ \textbf{x}_{t-1} $ melalui reparameterization trick $ \mathscr{N}(\mu,\sigma^2) = \mu + \sigma \epsilon $:
+\begin{equation}
+\Scale[1.2]{ \displaystyle
+\textbf{x}_{t-1} = \mu_\theta(\textbf{x}_{t},t) + \Sigma_\theta(\textbf{x}_{t},t) + \epsilon }
+\end{equation}
+
+\begin{fleqn}[\parindent]
+\begin{equation}
+\begin{split}
+\hspace{2.25em} = \frac{1}{\sqrt{\bar{\alpha}_t}} ( \textbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(\textbf{x}_t, t)) + \sqrt{\beta_t} \epsilon
+\end{split}
+\end{equation}
+\end{fleqn}
+
+
+\section{Data Scaling}
+
+
+\end{document}
