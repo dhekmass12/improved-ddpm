@@ -13,11 +13,12 @@ class CosineNoiseScheduler:
         self.betas = torch.tensor([])
 
         for t in range(self.num_timesteps):
-            new_alpha_cum_prod = self.f(t) / self.f(0)
-            new_beta = 1 - (new_alpha_cum_prod / (new_alpha_cum_prod - 1))
+            alpha_t_cum_prod = self.f(t) / self.f(0)
+            alpha_t_minus_one_cum_prod = self.f(t - 1) / self.f(0)
+            new_beta = 1 - (alpha_t_cum_prod / alpha_t_minus_one_cum_prod)
 
-            self.alphas_cum_prod.cat((self.alphas, new_alpha_cum_prod))
-            self.betas.cat((self.betas, new_beta))
+            torch.cat((self.alphas_cum_prod, torch.tensor([alpha_t_cum_prod])))
+            torch.cat((self.betas, torch.tensor([new_beta])))
 
         self.one_minus_betas = 1 - self.betas
         self.sqrt_betas = torch.sqrt(self.betas)

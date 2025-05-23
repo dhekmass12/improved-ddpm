@@ -178,3 +178,7 @@ ddpm-en.aux
 ddpm-en.log
 ddpm-en.out
 ddpm-en.synctex.gz
+
+data/
+
+default/samples/

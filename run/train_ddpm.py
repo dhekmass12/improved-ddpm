@@ -1,0 +1,134 @@
+import torch
+import yaml
+import argparse
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+from torch.optim import Adam
+from dataset.mnist import MnistDataset
+from torch.utils.data import DataLoader
+from models.unet.UNet import UNet
+from models.DDPM import DDPM
+from models.DDIM import DDIM
+
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+def train(args):
+    # Read the config file #
+    with open(args.config_path, 'r') as file:
+        try:
+            config = yaml.safe_load(file)
+        except yaml.YAMLError as exc:
+            print(exc)
+
+    ########################
+    
+    diffusion_config = config['diffusion_params']
+    dataset_config = config['dataset_params']
+    model_config = config['model_params']
+    train_config = config['train_params']
+    diff_model = diffusion_config["model"]
+    diff_scheduler = diffusion_config["scheduler"]
+    num_timesteps=diffusion_config['num_timesteps']
+    beta_start=diffusion_config['beta_start']
+    beta_end=diffusion_config['beta_end']
+
+    ddpm = DDPM(num_timesteps, beta_start, beta_end)
+    ddim = DDIM(num_timesteps, beta_start, beta_end)
+    
+    # Create the noise scheduler
+    if diff_model == "ddpm":
+        if diff_scheduler == "linear":
+            scheduler = ddpm.linear_scheduler
+        elif diff_scheduler == "cosine":
+            scheduler = ddpm.cosine_scheduler
+    elif diff_model == "ddim":
+        if diff_scheduler == "linear":
+            scheduler = ddim.linear_scheduler
+        elif diff_scheduler == "cosine":
+            scheduler = ddim.cosine_scheduler
+    
+    # Create the dataset
+    mnist = MnistDataset('train', im_path=dataset_config['im_path'])
+    mnist_loader = DataLoader(mnist, batch_size=train_config['batch_size'], shuffle=True, num_workers=4)
+    
+    # Instantiate the model
+    model = UNet(model_config).to(device)
+    model.train()
+    
+    # Create output directories
+    if not os.path.exists(train_config['task_name']):
+        os.mkdir(train_config['task_name'])
+    
+    # Load checkpoint if found
+    if os.path.exists(os.path.join(train_config['task_name'],train_config['ckpt_name'])):
+        print('Loading checkpoint as found one')
+        model.load_state_dict(torch.load(os.path.join(train_config['task_name'],
+                                                      train_config['ckpt_name']), map_location=device))
+    # Specify training parameters
+    num_epochs = train_config['num_epochs']
+    optimizer = Adam(model.parameters(), lr=train_config['lr'])
+    criterion = torch.nn.MSELoss()
+
+    #########################
+    #   RUN THE TRAINING    #
+    #########################
+
+    print('Running the training....')
+    
+    # Run training
+    for epoch_idx in range(num_epochs):
+        losses = []
+        for im in tqdm(mnist_loader):
+            optimizer.zero_grad()
+            im = im.float().to(device)
+            
+            # Sample random noise
+            noise = torch.randn_like(im).to(device)
+            
+            # Sample timestep
+            t = torch.randint(0, diffusion_config['num_timesteps'], (im.shape[0],)).to(device)
+            
+            # Add noise to images according to timestep
+            noisy_im = scheduler.add_noise(im, noise, t)
+            noise_pred = model(noisy_im, t)
+
+            loss = criterion(noise_pred, noise)
+            losses.append(loss.item())
+            loss.backward()
+            optimizer.step()
+        print('Finished epoch:{} | Loss : {:.4f}'.format(
+            epoch_idx + 1,
+            np.mean(losses),
+        ))
+        torch.save(model.state_dict(), os.path.join(train_config['task_name'],
+                                                    train_config['ckpt_name']))
+    
+    #########################
+    #   TRAINING END    #
+    #########################
+
+    print('Done Training')
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(losses, color='red')
+    plt.xlabel("Timesteps")
+    plt.ylabel("Training Loss")
+    plt.title(f"MNIST Training with mnist.yaml")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("mnist_training.png")
+    plt.savefig("mnist_training.pdf")
+    plt.show()
+    
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Arguments for ddpm training')
+    parser.add_argument('--config', dest='config_path',
+                        default='config/mnist.yaml', type=str)
+    args = parser.parse_args()
+    train(args)

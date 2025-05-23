@@ -5,8 +5,9 @@ import yaml
 import os
 from torchvision.utils import make_grid
 from tqdm import tqdm
-from models.unet_base import Unet
-from scheduler.linear_noise_scheduler import LinearNoiseScheduler
+from models.unet.UNet import UNet
+from models.DDPM import DDPM
+from models.DDIM import DDIM
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -46,23 +47,39 @@ def infer(args):
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             print(exc)
-    print(config)
+            
     ########################
     
     diffusion_config = config['diffusion_params']
     model_config = config['model_params']
     train_config = config['train_params']
+    diff_scheduler = diffusion_config["scheduler"]
+    diff_model = diffusion_config["model"]
+    num_timesteps=diffusion_config['num_timesteps']
+    beta_start=diffusion_config['beta_start']
+    beta_end=diffusion_config['beta_end']
+
+    ddpm = DDPM(num_timesteps, beta_start, beta_end)
+    ddim = DDIM(num_timesteps, beta_start, beta_end)
+
+    # Create the noise scheduler
+    if diff_model == "ddpm":
+        if diff_scheduler == "linear":
+            scheduler = ddpm.linear_scheduler
+        elif diff_scheduler == "cosine":
+            scheduler = ddpm.cosine_scheduler
+    elif diff_model == "ddim":
+        if diff_scheduler == "linear":
+            scheduler = ddim.linear_scheduler
+        elif diff_scheduler == "cosine":
+            scheduler = ddim.cosine_scheduler
     
     # Load model with checkpoint
-    model = Unet(model_config).to(device)
+    model = UNet(model_config).to(device)
     model.load_state_dict(torch.load(os.path.join(train_config['task_name'],
                                                   train_config['ckpt_name']), map_location=device))
     model.eval()
-    
-    # Create the noise scheduler
-    scheduler = LinearNoiseScheduler(num_timesteps=diffusion_config['num_timesteps'],
-                                     beta_start=diffusion_config['beta_start'],
-                                     beta_end=diffusion_config['beta_end'])
+
     with torch.no_grad():
         sample(model, scheduler, train_config, model_config, diffusion_config)
 
@@ -70,6 +87,6 @@ def infer(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm image generation')
     parser.add_argument('--config', dest='config_path',
-                        default='config/default.yaml', type=str)
+                        default='config/mnist.yaml', type=str)
     args = parser.parse_args()
     infer(args)
