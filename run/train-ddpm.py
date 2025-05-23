@@ -8,7 +8,8 @@ from torch.optim import Adam
 from dataset.mnist import MnistDataset
 from torch.utils.data import DataLoader
 from models.UNet import UNet
-from scheduler.LinearNoiseScheduler import LinearNoiseScheduler
+from models import DDPM, DDIM
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -27,11 +28,26 @@ def train(args):
     dataset_config = config['dataset_params']
     model_config = config['model_params']
     train_config = config['train_params']
+    diff_model = diffusion_config["model"]
+    diff_schedule = diffusion_config["schedule"]
+    num_timesteps=diffusion_config['num_timesteps']
+    beta_start=diffusion_config['beta_start']
+    beta_end=diffusion_config['beta_end']
+
+    ddpm = DDPM(num_timesteps, beta_start, beta_end)
+    ddim = DDIM(num_timesteps, beta_start, beta_end)
     
     # Create the noise scheduler
-    scheduler = LinearNoiseScheduler(num_timesteps=diffusion_config['num_timesteps'],
-                                     beta_start=diffusion_config['beta_start'],
-                                     beta_end=diffusion_config['beta_end'])
+    if diff_model == "ddpm":
+        if diff_schedule == "linear":
+            scheduler = ddpm.linear_scheduler
+        elif diff_schedule == "cosine":
+            scheduler = ddpm.cosine_scheduler
+    elif diff_model == "ddim":
+        if diff_schedule == "linear":
+            scheduler = ddim.linear_scheduler
+        elif diff_schedule == "cosine":
+            scheduler = ddim.cosine_scheduler
     
     # Create the dataset
     mnist = MnistDataset('train', im_path=dataset_config['im_path'])
