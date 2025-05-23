@@ -26,10 +26,10 @@ def sample(model, scheduler, train_config, model_config, diffusion_config):
         noise_pred = model(xt, torch.as_tensor(i).unsqueeze(0).to(device))
         
         # Use scheduler to get x0 and xt-1
-        xt, x0_pred = scheduler.sample_prev_timestep(xt, noise_pred, torch.as_tensor(i).to(device))
+        xt_minus_one, x0_pred = scheduler.sample_prev_timestep(xt, noise_pred, torch.as_tensor(i).to(device))
         
         # Save x0
-        ims = torch.clamp(xt, -1., 1.).detach().cpu()
+        ims = torch.clamp(xt_minus_one, -1., 1.).detach().cpu()
         ims = (ims + 1) / 2
         grid = make_grid(ims, nrow=train_config['num_grid_rows'])
         img = torchvision.transforms.ToPILImage()(grid)
