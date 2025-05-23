@@ -80,6 +80,7 @@ def train(args):
     print('Running the training....')
     
     # Run training
+    counter = 0
     for epoch_idx in range(num_epochs):
         losses = []
         for im in tqdm(mnist_loader):
@@ -97,9 +98,13 @@ def train(args):
             noise_pred = model(noisy_im, t)
 
             loss = criterion(noise_pred, noise)
-            losses.append(loss.item())
+            if counter % 40 == 0:
+                losses.append(loss.item())
             loss.backward()
             optimizer.step()
+
+            counter += 1
+
         print('Finished epoch:{} | Loss : {:.4f}'.format(
             epoch_idx + 1,
             np.mean(losses),
@@ -116,19 +121,19 @@ def train(args):
     # Plot
     plt.figure(figsize=(10, 6))
     plt.plot(losses, color='red')
-    plt.xlabel("Timesteps")
+    plt.xlabel("Timesteps (x40)")
     plt.ylabel("Training Loss")
-    plt.title(f"MNIST Training with mnist.yaml")
+    plt.title(f"MNIST Training with mnist2.yaml")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("mnist_training.png")
-    plt.savefig("mnist_training.pdf")
+    plt.savefig("mnist2_training.png")
+    plt.savefig("mnist2_training.pdf")
     plt.show()
     
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist.yaml', type=str)
+                        default='config/mnist2.yaml', type=str)
     args = parser.parse_args()
     train(args)

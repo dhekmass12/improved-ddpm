@@ -87,6 +87,6 @@ def infer(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm image generation')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist.yaml', type=str)
+                        default='config/mnist2.yaml', type=str)
     args = parser.parse_args()
     infer(args)
