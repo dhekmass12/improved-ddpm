@@ -1,19 +1,41 @@
 import torch
+import math
+import numpy as np
 
 
-class LinearNoiseScheduler:
+class SigmoidNoiseScheduler:
     r"""
-    Class for the linear noise scheduler that is used in DDPM.
+    Class for the Sigmoid noise scheduler that is used in DDPM.
     """
-    def __init__(self, num_timesteps, beta_start, beta_end):
+    def __init__(self, num_timesteps, s, e, tau):
         self.num_timesteps = num_timesteps
-        self.beta_start = beta_start
-        self.beta_end = beta_end
+        self.s = s
+        self.e = e
+        self.tau = tau
+        self.alpha_cum_prods = torch.tensor([])
+        self.betas = torch.tensor([])
+
+        for t in range(self.num_timesteps):
+            timestep = t
+            t = t / (self.num_timesteps - 1)  # Normalize t to [0, 1]
+            
+            sig = self.sigmoid((t*(self.e-self.s)+self.s)/self.tau)
+            sig_s = self.sigmoid(self.s/self.tau)
+            sig_e = self.sigmoid(self.e/self.tau)
+            
+            alpha_t_cum_prod = (-sig + sig_e) / (sig_e - sig_s)
+            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 1e-9, 1.0)
+            
+            if timestep == 0:
+                beta = 1.0 - alpha_t_cum_prod
+            else:
+                beta = 1.0 - (alpha_t_cum_prod / self.alpha_cum_prods[-1].item())
+
+            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
+            self.betas = torch.cat((self.betas, torch.tensor([beta])))
         
-        self.betas = torch.linspace(beta_start, beta_end, num_timesteps)
-        alphas = 1. - self.betas
-        self.alpha_cum_prods = torch.cumprod(alphas, dim=0)
-        
+    def sigmoid(self, x):
+        return 1 / (1 + math.exp(-x))
     
     def add_noise(self, original, noise, t):
         r"""
@@ -25,7 +47,7 @@ class LinearNoiseScheduler:
         """
         original_shape = original.shape
         batch_size = original_shape[0]
-        
+
         alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
         betas = self.betas.to(original.device)[t].reshape(batch_size)
         
@@ -49,25 +71,16 @@ class LinearNoiseScheduler:
         :return:
         """
         
-        # print(self.alpha_cum_prods)
-        
         x0 = xt - (torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t])  * noise_pred)
         x0 = x0 / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
         x0 = torch.clamp(x0, -1., 1.)
         
-        mean = xt - (self.betas.to(xt.device)[t]) * noise_pred / torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t])
+        mean = xt - torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t]) * noise_pred * xt
         mean = mean / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
-        
         if t == 0:
-            return mean, x0
+            mean = mean
         else:
-            # variance = (1 - self.one_minus_betas.to(xt.device)[t - 1]) / (1.0 - self.one_minus_betas.to(xt.device)[t])
-            # variance = variance * self.betas.to(xt.device)[t]
-            # sigma = variance ** 0.5
-            # z = torch.randn(xt.shape).to(xt.device)
-            
-            # OR
-            variance = self.betas.to(xt.device)[t]
-            sigma = variance ** 0.5
-            z = torch.randn(xt.shape).to(xt.device)
-            return mean + sigma * z, x0
+            mean = mean * torch.sqrt(self.alpha_cum_prods.to(xt.device)[t - 1])
+            mean = mean + torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t - 1]) * noise_pred * xt
+        
+        return mean, x0

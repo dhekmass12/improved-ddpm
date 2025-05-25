@@ -18,16 +18,16 @@ def sample(model, scheduler, train_config, model_config, diffusion_config):
     Sample stepwise by going backward one timestep at a time.
     We save the x0 predictions
     """
-    xt = torch.randn((train_config['num_samples'],
+    xt_minus_one = torch.randn((train_config['num_samples'],
                       model_config['im_channels'],
                       model_config['im_size'],
                       model_config['im_size'])).to(device)
     for i in tqdm(reversed(range(diffusion_config['num_timesteps']))):
         # Get prediction of noise
-        noise_pred = model(xt, torch.as_tensor(i).unsqueeze(0).to(device))
+        noise_pred = model(xt_minus_one, torch.as_tensor(i).unsqueeze(0).to(device))
         
         # Use scheduler to get x0 and xt-1
-        xt_minus_one, x0_pred = scheduler.sample_prev_timestep(xt, noise_pred, torch.as_tensor(i).to(device))
+        xt_minus_one, x0_pred = scheduler.sample_prev_timestep(xt_minus_one, noise_pred, torch.as_tensor(i).to(device))
         
         # Save x0
         ims = torch.clamp(xt_minus_one, -1., 1.).detach().cpu()
@@ -58,21 +58,29 @@ def infer(args):
     num_timesteps=diffusion_config['num_timesteps']
     beta_start=diffusion_config['beta_start']
     beta_end=diffusion_config['beta_end']
+    start=diffusion_config['s']
+    end=diffusion_config['e']
+    tau=diffusion_config['tau']
+    s=diffusion_config['s']
 
-    ddpm = DDPM(num_timesteps, beta_start, beta_end)
-    ddim = DDIM(num_timesteps, beta_start, beta_end)
-
+    ddpm = DDPM(num_timesteps, beta_start, beta_end, start, end, tau, s)
+    ddim = DDIM(num_timesteps, beta_start, beta_end, start, end, tau, s)
+    
     # Create the noise scheduler
     if diff_model == "ddpm":
         if diff_scheduler == "linear":
             scheduler = ddpm.linear_scheduler
         elif diff_scheduler == "cosine":
             scheduler = ddpm.cosine_scheduler
+        elif diff_scheduler == "sigmoid":
+            scheduler = ddpm.sigmoid_scheduler
     elif diff_model == "ddim":
         if diff_scheduler == "linear":
             scheduler = ddim.linear_scheduler
         elif diff_scheduler == "cosine":
             scheduler = ddim.cosine_scheduler
+        elif diff_scheduler == "sigmoid":
+            scheduler = ddim.sigmoid_scheduler
     
     # Load model with checkpoint
     model = UNet(model_config).to(device)
@@ -87,6 +95,6 @@ def infer(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm image generation')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist2.yaml', type=str)
+                        default='config/mnist3.yaml', type=str)
     args = parser.parse_args()
     infer(args)

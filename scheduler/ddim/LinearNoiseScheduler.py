@@ -11,11 +11,9 @@ class LinearNoiseScheduler:
         self.beta_end = beta_end
         
         self.betas = torch.linspace(beta_start, beta_end, num_timesteps)
-        self.alphas = 1. - self.betas
-        self.alpha_cum_prod = torch.cumprod(self.alphas, dim=0)
-        self.sqrt_alpha_cum_prod = torch.sqrt(self.alpha_cum_prod)
-        self.sqrt_one_minus_alpha_cum_prod = torch.sqrt(1 - self.alpha_cum_prod)
-
+        alphas = 1. - self.betas
+        self.alpha_cum_prods = torch.cumprod(alphas, dim=0)
+        
     
     def add_noise(self, original, noise, t):
         r"""
@@ -28,18 +26,18 @@ class LinearNoiseScheduler:
         original_shape = original.shape
         batch_size = original_shape[0]
         
-        sqrt_alpha_cum_prod = self.sqrt_alpha_cum_prod.to(original.device)[t].reshape(batch_size)
-        sqrt_one_minus_alpha_cum_prod = self.sqrt_one_minus_alpha_cum_prod.to(original.device)[t].reshape(batch_size)
+        alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
+        betas = self.betas.to(original.device)[t].reshape(batch_size)
         
         # Reshape till (B,) becomes (B,1,1,1) if image is (B,C,H,W)
         for _ in range(len(original_shape) - 1):
-            sqrt_alpha_cum_prod = sqrt_alpha_cum_prod.unsqueeze(-1)
+            alpha_cum_prods = alpha_cum_prods.unsqueeze(-1)
         for _ in range(len(original_shape) - 1):
-            sqrt_one_minus_alpha_cum_prod = sqrt_one_minus_alpha_cum_prod.unsqueeze(-1)
+            betas = betas.unsqueeze(-1)
         
         # Apply and Return Forward process equation
-        return (sqrt_alpha_cum_prod.to(original.device) * original
-                + sqrt_one_minus_alpha_cum_prod.to(original.device) * noise)
+        return (torch.sqrt(alpha_cum_prods.to(original.device)) * original
+                + torch.sqrt(1 - alpha_cum_prods.to(original.device)) * noise)
 
     def sample_prev_timestep(self, xt, noise_pred, t):
         r"""
@@ -50,12 +48,17 @@ class LinearNoiseScheduler:
         :param t: current timestep we are at
         :return:
         """
-        x0 = ((xt - (self.sqrt_betas.to(xt.device)[t] * noise_pred)) /
-              torch.sqrt(self.one_minus_betas.to(xt.device)[t]))
+        
+        x0 = xt - (torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t])  * noise_pred)
+        x0 = x0 / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
         x0 = torch.clamp(x0, -1., 1.)
-
-        mean = (xt - (self.sqrt_betas.to(xt.device)[t] * noise_pred * xt)) / self.sqrt_one_minus_betas.to(xt.device)[t]
-        mean *= self.sqrt_one_minus_betas.to(xt.device)[t - 1]
-        mean += self.sqrt_betas.to(xt.device)[t - 1] * noise_pred
+        
+        mean = xt - torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t]) * noise_pred * xt
+        mean = mean / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
+        if t == 0:
+            mean = mean
+        else:
+            mean = mean * torch.sqrt(self.alpha_cum_prods.to(xt.device)[t - 1])
+            mean = mean + torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t - 1]) * noise_pred * xt
         
         return mean, x0

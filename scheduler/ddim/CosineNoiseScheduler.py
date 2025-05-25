@@ -1,35 +1,34 @@
 import torch
 import math
+import numpy as np
 
 
 class CosineNoiseScheduler:
     r"""
-    Class for the linear noise scheduler that is used in DDPM.
+    Class for the Cosine noise scheduler that is used in DDPM.
     """
-    def __init__(self, num_timesteps):
+    def __init__(self, num_timesteps, s):
         self.num_timesteps = num_timesteps
-        self.s = 0.008
-        self.alphas_cum_prod = torch.tensor([])
+        self.s = s
+        self.alpha_cum_prods = torch.tensor([])
         self.betas = torch.tensor([])
 
         for t in range(self.num_timesteps):
             alpha_t_cum_prod = self.f(t) / self.f(0)
             alpha_t_minus_one_cum_prod = self.f(t - 1) / self.f(0)
+            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 0, 1)
+            alpha_t_minus_one_cum_prod = np.clip(alpha_t_minus_one_cum_prod, 0, 1)
             new_beta = 1 - (alpha_t_cum_prod / alpha_t_minus_one_cum_prod)
+            new_beta = np.clip(new_beta, 1e-9, 0.999)
 
-            torch.cat((self.alphas_cum_prod, torch.tensor([alpha_t_cum_prod])))
+            torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
             torch.cat((self.betas, torch.tensor([new_beta])))
 
-        self.one_minus_betas = 1 - self.betas
-        self.sqrt_betas = torch.sqrt(self.betas)
-        self.sqrt_one_minus_betas = torch.sqrt(1 - self.betas)
-
-    def f(self, t):
+    def f(self, t):        
         nom = t/self.num_timesteps + self.s
         denom = 1+self.s
 
         return pow(math.cos(nom/denom * math.pi / 2), 2)
-
     
     def add_noise(self, original, noise, t):
         r"""
@@ -42,18 +41,18 @@ class CosineNoiseScheduler:
         original_shape = original.shape
         batch_size = original_shape[0]
 
-        sqrt_beta = self.sqrt_betas.to(original.device)[t].reshape(batch_size)
-        sqrt_one_minus_beta = self.sqrt_one_minus_betas.to(original.device)[t].reshape(batch_size)
+        alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
+        betas = self.betas.to(original.device)[t].reshape(batch_size)
         
         # Reshape till (B,) becomes (B,1,1,1) if image is (B,C,H,W)
         for _ in range(len(original_shape) - 1):
-            sqrt_one_minus_beta = sqrt_one_minus_beta.unsqueeze(-1)
+            alpha_cum_prods = alpha_cum_prods.unsqueeze(-1)
         for _ in range(len(original_shape) - 1):
-            sqrt_beta = sqrt_beta.unsqueeze(-1)
+            betas = betas.unsqueeze(-1)
         
         # Apply and Return Forward process equation
-        return (sqrt_one_minus_beta.to(original.device) * original
-                + sqrt_beta.to(original.device) * noise)
+        return (torch.sqrt(alpha_cum_prods.to(original.device)) * original
+                + torch.sqrt(1 - alpha_cum_prods.to(original.device)) * noise)
 
     def sample_prev_timestep(self, xt, noise_pred, t):
         r"""
@@ -64,12 +63,17 @@ class CosineNoiseScheduler:
         :param t: current timestep we are at
         :return:
         """
-        x0 = ((xt - (self.sqrt_betas.to(xt.device)[t] * noise_pred)) /
-              torch.sqrt(self.one_minus_betas.to(xt.device)[t]))
+        
+        x0 = xt - (torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t])  * noise_pred)
+        x0 = x0 / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
         x0 = torch.clamp(x0, -1., 1.)
-
-        mean = (xt - (self.sqrt_betas.to(xt.device)[t] * noise_pred * xt)) / self.sqrt_one_minus_betas.to(xt.device)[t]
-        mean *= self.sqrt_one_minus_betas.to(xt.device)[t - 1]
-        mean += self.sqrt_betas.to(xt.device)[t - 1] * noise_pred
+        
+        mean = xt - torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t]) * noise_pred * xt
+        mean = mean / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
+        if t == 0:
+            mean = mean
+        else:
+            mean = mean * torch.sqrt(self.alpha_cum_prods.to(xt.device)[t - 1])
+            mean = mean + torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t - 1]) * noise_pred * xt
         
         return mean, x0

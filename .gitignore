@@ -179,6 +179,9 @@ ddpm-en.log
 ddpm-en.out
 ddpm-en.synctex.gz
 
-data/
+data/train/
+data/test/
+data/mnist_test.csv
+data/mnist_train.csv
 
 default/samples/

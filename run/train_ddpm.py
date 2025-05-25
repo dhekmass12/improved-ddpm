@@ -35,9 +35,13 @@ def train(args):
     num_timesteps=diffusion_config['num_timesteps']
     beta_start=diffusion_config['beta_start']
     beta_end=diffusion_config['beta_end']
+    start=diffusion_config['start']
+    end=diffusion_config['end']
+    tau=diffusion_config['tau']
+    s=diffusion_config['s']
 
-    ddpm = DDPM(num_timesteps, beta_start, beta_end)
-    ddim = DDIM(num_timesteps, beta_start, beta_end)
+    ddpm = DDPM(num_timesteps, beta_start, beta_end, start, end, tau, s)
+    ddim = DDIM(num_timesteps, beta_start, beta_end, start, end, tau, s)
     
     # Create the noise scheduler
     if diff_model == "ddpm":
@@ -45,11 +49,15 @@ def train(args):
             scheduler = ddpm.linear_scheduler
         elif diff_scheduler == "cosine":
             scheduler = ddpm.cosine_scheduler
+        elif diff_scheduler == "sigmoid":
+            scheduler = ddpm.sigmoid_scheduler
     elif diff_model == "ddim":
         if diff_scheduler == "linear":
             scheduler = ddim.linear_scheduler
         elif diff_scheduler == "cosine":
             scheduler = ddim.cosine_scheduler
+        elif diff_scheduler == "sigmoid":
+            scheduler = ddim.sigmoid_scheduler
     
     # Create the dataset
     mnist = MnistDataset('train', im_path=dataset_config['im_path'])
@@ -80,7 +88,6 @@ def train(args):
     print('Running the training....')
     
     # Run training
-    counter = 0
     for epoch_idx in range(num_epochs):
         losses = []
         for im in tqdm(mnist_loader):
@@ -98,12 +105,9 @@ def train(args):
             noise_pred = model(noisy_im, t)
 
             loss = criterion(noise_pred, noise)
-            if counter % 40 == 0:
-                losses.append(loss.item())
+            losses.append(loss.item())
             loss.backward()
             optimizer.step()
-
-            counter += 1
 
         print('Finished epoch:{} | Loss : {:.4f}'.format(
             epoch_idx + 1,
@@ -134,6 +138,6 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist2.yaml', type=str)
+                        default='config/mnist3.yaml', type=str)
     args = parser.parse_args()
     train(args)
