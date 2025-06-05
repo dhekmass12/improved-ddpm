@@ -15,18 +15,15 @@ class SigmoidNoiseScheduler:
         self.alpha_cum_prods = torch.tensor([])
         self.betas = torch.tensor([])
 
-        for t in range(self.num_timesteps):
-            timestep = t
-            t = t / (self.num_timesteps - 1)  # Normalize t to [0, 1]
-            
+        for t in range(self.num_timesteps):            
             sig = self.sigmoid((t*(self.e-self.s)+self.s)/self.tau)
             sig_s = self.sigmoid(self.s/self.tau)
             sig_e = self.sigmoid(self.e/self.tau)
             
             alpha_t_cum_prod = (-sig + sig_e) / (sig_e - sig_s)
-            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 1e-9, 1.0)
+            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 1e-9, 0.999)
             
-            if timestep == 0:
+            if t == 0:
                 beta = 1.0 - alpha_t_cum_prod
             else:
                 beta = 1.0 - (alpha_t_cum_prod / self.alpha_cum_prods[-1].item())

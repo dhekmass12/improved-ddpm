@@ -1,19 +1,29 @@
 import torch
+import math
+import numpy as np
 
 
-class LinearNoiseScheduler:
+class SquareRootNoiseScheduler:
     r"""
-    Class for the Linear noise scheduler that is used in DDIM.
+    Class for the Square Root noise scheduler that is used in DDIM.
     """
-    def __init__(self, num_timesteps, beta_start, beta_end):
+    def __init__(self, num_timesteps, s):
         self.num_timesteps = num_timesteps
-        self.beta_start = beta_start
-        self.beta_end = beta_end
-        
-        self.betas = torch.linspace(beta_start, beta_end, num_timesteps)
-        alphas = 1. - self.betas
-        self.alpha_cum_prods = torch.cumprod(alphas, dim=0)
-        
+        self.s = s
+        self.alpha_cum_prods = torch.tensor([])
+        self.betas = torch.tensor([])
+
+        for t in range(self.num_timesteps):            
+            alpha_t_cum_prod = 1 - math.sqrt(t/self.num_timesteps + self.s)
+            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 1e-9, 0.999)
+            
+            if t == 0:
+                beta = 1.0 - alpha_t_cum_prod
+            else:
+                beta = 1.0 - (alpha_t_cum_prod / self.alpha_cum_prods[-1].item())
+
+            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
+            self.betas = torch.cat((self.betas, torch.tensor([beta])))
     
     def add_noise(self, original, noise, t):
         r"""
@@ -25,7 +35,7 @@ class LinearNoiseScheduler:
         """
         original_shape = original.shape
         batch_size = original_shape[0]
-        
+
         alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
         betas = self.betas.to(original.device)[t].reshape(batch_size)
         

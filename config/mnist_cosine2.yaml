@@ -3,10 +3,11 @@ dataset_params:
 
 diffusion_params:
   num_timesteps : 1000
-  beta_start : 0.0001
-  beta_end : 0.02
   model: 'ddpm'
-  scheduler: 'linear'
+  scheduler: 'cosine'
+
+  s: 0.2
+  p: 2
 
 model_params:
   im_channels : 1
@@ -23,8 +24,8 @@ model_params:
 train_params:
   task_name: 'default'
   batch_size: 64
-  num_epochs: 40
+  num_epochs: 1
   num_samples : 100
   num_grid_rows : 10
   lr: 0.0001
-  ckpt_name: 'mnist.pth'
+  ckpt_name: 'mnist_cosine.pth'

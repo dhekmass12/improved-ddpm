@@ -5,7 +5,7 @@ import numpy as np
 
 class CosineNoiseScheduler:
     r"""
-    Class for the Cosine noise scheduler that is used in DDPM.
+    Class for the Cosine noise scheduler that is used in DDIM.
     """
     def __init__(self, num_timesteps, s):
         self.num_timesteps = num_timesteps
