@@ -7,11 +7,9 @@ class SquareRootNoiseScheduler:
     r"""
     Class for the Square Root noise scheduler that is used in DDPM.
     """
-    def __init__(self, num_timesteps, s, e, tau):
+    def __init__(self, num_timesteps, s):
         self.num_timesteps = num_timesteps
         self.s = s
-        self.e = e
-        self.tau = tau
         self.alpha_cum_prods = torch.tensor([])
         self.betas = torch.tensor([])
 

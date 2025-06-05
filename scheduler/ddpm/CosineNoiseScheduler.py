@@ -7,9 +7,10 @@ class CosineNoiseScheduler:
     r"""
     Class for the Cosine noise scheduler that is used in DDPM.
     """
-    def __init__(self, num_timesteps, s):
+    def __init__(self, num_timesteps, s, p):
         self.num_timesteps = num_timesteps
         self.s = s
+        self.p = p
         self.alpha_cum_prods = torch.tensor([])
         self.betas = torch.tensor([])
 
@@ -28,7 +29,7 @@ class CosineNoiseScheduler:
         nom = t/self.num_timesteps + self.s
         denom = 1+self.s
 
-        return pow(math.cos(nom/denom * math.pi / 2), 2)
+        return pow(math.cos(nom/denom * math.pi / 2), self.p)
     
     def add_noise(self, original, noise, t):
         r"""

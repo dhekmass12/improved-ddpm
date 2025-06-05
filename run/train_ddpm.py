@@ -33,17 +33,36 @@ def train(args):
     diff_model = diffusion_config["model"]
     diff_scheduler = diffusion_config["scheduler"]
     num_timesteps=diffusion_config['num_timesteps']
-    beta_start=diffusion_config['beta_start']
-    beta_end=diffusion_config['beta_end']
-    start=diffusion_config['start']
-    end=diffusion_config['end']
-    tau=diffusion_config['tau']
-    s=diffusion_config['s']
-
-    ddpm = DDPM(num_timesteps, beta_start, beta_end, start, end, tau, s)
-    ddim = DDIM(num_timesteps, beta_start, beta_end, start, end, tau, s)
+    beta_start = None
+    beta_end = None
+    start=None
+    end=None
+    tau=None
+    s=None
+    p=None
     
     # Create the noise scheduler
+    if diff_scheduler == "linear":
+        beta_start = diffusion_config['beta_start']
+        beta_end = diffusion_config['beta_end']
+        ddpm = DDPM(num_timesteps, beta_start=beta_start, beta_end=beta_end)
+        ddim = DDIM(num_timesteps, beta_start=beta_start, beta_end=beta_end)
+    elif diff_scheduler == "cosine":
+        s=diffusion_config['s']
+        p=diffusion_config['p']
+        ddpm = DDPM(num_timesteps, s=s, p=p)
+        ddim = DDIM(num_timesteps, s=s, p=p)
+    elif diff_scheduler == "sigmoid":
+        start=diffusion_config['start']
+        end=diffusion_config['end']
+        tau=diffusion_config['tau']
+        ddpm = DDPM(num_timesteps, start=start, end=end, tau=tau)
+        ddim = DDIM(num_timesteps, start=start, end=end, tau=tau)
+    elif diff_scheduler == "square_root":
+        s=diffusion_config['s']
+        ddpm = DDPM(num_timesteps, s=s)
+        ddim = DDIM(num_timesteps, s=s)
+    
     if diff_model == "ddpm":
         if diff_scheduler == "linear":
             scheduler = ddpm.linear_scheduler
@@ -51,6 +70,9 @@ def train(args):
             scheduler = ddpm.cosine_scheduler
         elif diff_scheduler == "sigmoid":
             scheduler = ddpm.sigmoid_scheduler
+        elif diff_scheduler == "square_root":
+            scheduler = ddpm.square_root_scheduler
+    
     elif diff_model == "ddim":
         if diff_scheduler == "linear":
             scheduler = ddim.linear_scheduler
@@ -58,6 +80,8 @@ def train(args):
             scheduler = ddim.cosine_scheduler
         elif diff_scheduler == "sigmoid":
             scheduler = ddim.sigmoid_scheduler
+        elif diff_scheduler == "square_root":
+            scheduler = ddim.square_root_scheduler
     
     # Create the dataset
     mnist = MnistDataset('train', im_path=dataset_config['im_path'])
@@ -138,6 +162,6 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist3.yaml', type=str)
+                        default='config/mnist_sigmoid.yaml', type=str)
     args = parser.parse_args()
     train(args)

@@ -51,22 +51,37 @@ def infer(args):
     ########################
     
     diffusion_config = config['diffusion_params']
+    dataset_config = config['dataset_params']
     model_config = config['model_params']
     train_config = config['train_params']
-    diff_scheduler = diffusion_config["scheduler"]
     diff_model = diffusion_config["model"]
+    diff_scheduler = diffusion_config["scheduler"]
     num_timesteps=diffusion_config['num_timesteps']
-    beta_start=diffusion_config['beta_start']
-    beta_end=diffusion_config['beta_end']
-    start=diffusion_config['s']
-    end=diffusion_config['e']
-    tau=diffusion_config['tau']
-    s=diffusion_config['s']
-
-    ddpm = DDPM(num_timesteps, beta_start, beta_end, start, end, tau, s)
-    ddim = DDIM(num_timesteps, beta_start, beta_end, start, end, tau, s)
+    beta_start = None
+    beta_end = None
+    start=None
+    end=None
+    tau=None
+    s=None
+    p=None
     
     # Create the noise scheduler
+    if diff_scheduler == "linear":
+        beta_start = diffusion_config['beta_start']
+        beta_end = diffusion_config['beta_end']
+    elif diff_scheduler == "cosine":
+        s=diffusion_config['s']
+        p=diffusion_config['p']
+    elif diff_scheduler == "sigmoid":
+        start=diffusion_config['start']
+        end=diffusion_config['end']
+        tau=diffusion_config['tau']
+    elif diff_scheduler == "square_root":
+        s=diffusion_config['s']
+            
+    ddpm = DDPM(num_timesteps, beta_start, beta_end, start, end, tau, s, p)
+    ddim = DDIM(num_timesteps, beta_start, beta_end, start, end, tau, s, p)
+    
     if diff_model == "ddpm":
         if diff_scheduler == "linear":
             scheduler = ddpm.linear_scheduler
@@ -74,6 +89,9 @@ def infer(args):
             scheduler = ddpm.cosine_scheduler
         elif diff_scheduler == "sigmoid":
             scheduler = ddpm.sigmoid_scheduler
+        elif diff_scheduler == "square_root":
+            scheduler = ddpm.square_root_scheduler
+    
     elif diff_model == "ddim":
         if diff_scheduler == "linear":
             scheduler = ddim.linear_scheduler
@@ -81,6 +99,8 @@ def infer(args):
             scheduler = ddim.cosine_scheduler
         elif diff_scheduler == "sigmoid":
             scheduler = ddim.sigmoid_scheduler
+        elif diff_scheduler == "square_root":
+            scheduler = ddim.square_root_scheduler
     
     # Load model with checkpoint
     model = UNet(model_config).to(device)
