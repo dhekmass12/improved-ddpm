@@ -42,15 +42,24 @@ class CosineNoiseScheduler:
         original_shape = original.shape
         batch_size = original_shape[0]
 
-        alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
+        alpha_cum_prod = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
+        alpha_minus_one_cum_prod = self.alpha_cum_prods.to(original.device)[t - 1].reshape(batch_size)
         
         # Reshape till (B,) becomes (B,1,1,1) if image is (B,C,H,W)
         for _ in range(len(original_shape) - 1):
-            alpha_cum_prods = alpha_cum_prods.unsqueeze(-1)
+            alpha_cum_prod = alpha_cum_prod.unsqueeze(-1)
+        for _ in range(len(original_shape) - 1):
+            alpha_minus_one_cum_prod = alpha_minus_one_cum_prod.unsqueeze(-1)
+            
+        xt = (torch.sqrt(alpha_cum_prod.to(original.device)) * original + 
+            torch.sqrt(1 - alpha_cum_prod.to(original.device)) * noise)
+        xt_minus_one = (torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original +
+            torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device)) * noise)
         
         # Apply and Return Forward process equation
-        return (torch.sqrt(alpha_cum_prods.to(original.device)) * original
-                + torch.sqrt(1 - alpha_cum_prods.to(original.device)) * noise)
+        return (torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original
+                + torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device)) * ((xt - 
+                    torch.sqrt(alpha_cum_prod) * original) / torch.sqrt(1 - alpha_cum_prod)))
 
     def sample_prev_timestep(self, xt, noise_pred, t):
         r"""
