@@ -56,10 +56,14 @@ class CosineNoiseScheduler:
         xt_minus_one = (torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original +
             torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device)) * noise)
         
+        term = torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original
+        term2 = torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device))
+        noise = (xt - torch.sqrt(alpha_cum_prod) * original) / torch.sqrt(1 - alpha_cum_prod)
+        
+        xt_minus_one_given_xt_x0 = term + term2 * noise
+        
         # Apply and Return Forward process equation
-        return (torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original
-                + torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device)) * ((xt - 
-                    torch.sqrt(alpha_cum_prod) * original) / torch.sqrt(1 - alpha_cum_prod)))
+        return xt_minus_one_given_xt_x0 * xt / xt_minus_one
 
     def sample_prev_timestep(self, xt, noise_pred, t):
         r"""
