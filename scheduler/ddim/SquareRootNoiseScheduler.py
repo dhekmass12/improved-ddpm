@@ -37,13 +37,10 @@ class SquareRootNoiseScheduler:
         batch_size = original_shape[0]
 
         alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
-        betas = self.betas.to(original.device)[t].reshape(batch_size)
         
         # Reshape till (B,) becomes (B,1,1,1) if image is (B,C,H,W)
         for _ in range(len(original_shape) - 1):
             alpha_cum_prods = alpha_cum_prods.unsqueeze(-1)
-        for _ in range(len(original_shape) - 1):
-            betas = betas.unsqueeze(-1)
         
         # Apply and Return Forward process equation
         return (torch.sqrt(alpha_cum_prods.to(original.device)) * original
@@ -63,12 +60,12 @@ class SquareRootNoiseScheduler:
         x0 = x0 / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
         x0 = torch.clamp(x0, -1., 1.)
         
-        mean = xt - torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t]) * noise_pred * xt
+        mean = xt - torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t]) * noise_pred
         mean = mean / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
         if t == 0:
             mean = mean
         else:
             mean = mean * torch.sqrt(self.alpha_cum_prods.to(xt.device)[t - 1])
-            mean = mean + torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t - 1]) * noise_pred * xt
+            mean = mean + torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t - 1]) * noise_pred
         
         return mean, x0

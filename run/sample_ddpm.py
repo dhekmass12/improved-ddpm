@@ -22,6 +22,7 @@ def sample(model, scheduler, train_config, model_config, diffusion_config):
                       model_config['im_channels'],
                       model_config['im_size'],
                       model_config['im_size'])).to(device)
+    
     for i in tqdm(reversed(range(diffusion_config['num_timesteps']))):
         # Get prediction of noise
         noise_pred = model(xt_minus_one, torch.as_tensor(i).unsqueeze(0).to(device))
@@ -115,6 +116,6 @@ def infer(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm image generation')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist3.yaml', type=str)
+                        default='config/mnist_linear.yaml', type=str)
     args = parser.parse_args()
     infer(args)

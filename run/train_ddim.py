@@ -157,6 +157,6 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='config/T_1000/mnist_linear.yaml', type=str)
+                        default='config/mnist_linear.yaml', type=str)
     args = parser.parse_args()
     train(args)

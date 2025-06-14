@@ -2,11 +2,12 @@ dataset_params:
   im_path: 'data/train/images'
 
 diffusion_params:
-  num_timesteps : 1000
+  num_timesteps : 200
   model: 'ddpm'
-  scheduler: 'square_root'
+  scheduler: 'cosine'
 
   s: 0.008
+  p: 2
 
 model_params:
   im_channels : 1
@@ -24,7 +25,7 @@ train_params:
   task_name: 'default'
   batch_size: 64
   num_epochs: 1
-  num_samples : 100
-  num_grid_rows : 10
+  num_samples : 1
+  num_grid_rows : 1
   lr: 0.0001
-  ckpt_name: 'mnist_sigmoid2.pth'
+  ckpt_name: 'mnist_cosine_200.pth'

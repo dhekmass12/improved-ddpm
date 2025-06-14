@@ -22,8 +22,8 @@ class CosineNoiseScheduler:
             new_beta = 1 - (alpha_t_cum_prod / alpha_t_minus_one_cum_prod)
             new_beta = np.clip(new_beta, 1e-9, 0.999)
 
-            torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
-            torch.cat((self.betas, torch.tensor([new_beta])))
+            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
+            self.betas = torch.cat((self.betas, torch.tensor([new_beta])))
 
     def f(self, t):        
         nom = t/self.num_timesteps + self.s
@@ -43,13 +43,10 @@ class CosineNoiseScheduler:
         batch_size = original_shape[0]
 
         alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
-        betas = self.betas.to(original.device)[t].reshape(batch_size)
         
         # Reshape till (B,) becomes (B,1,1,1) if image is (B,C,H,W)
         for _ in range(len(original_shape) - 1):
             alpha_cum_prods = alpha_cum_prods.unsqueeze(-1)
-        for _ in range(len(original_shape) - 1):
-            betas = betas.unsqueeze(-1)
         
         # Apply and Return Forward process equation
         return (torch.sqrt(alpha_cum_prods.to(original.device)) * original
@@ -65,25 +62,32 @@ class CosineNoiseScheduler:
         :return:
         """
         
-        # print(self.alpha_cum_prods)
+        print(t.item())
         
         x0 = xt - (torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t])  * noise_pred)
         x0 = x0 / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
         x0 = torch.clamp(x0, -1., 1.)
         
-        mean = xt - (self.betas.to(xt.device)[t]) * noise_pred / torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t])
-        mean = mean / torch.sqrt(self.alpha_cum_prods.to(xt.device)[t])
+        mean = xt - (self.betas.to(xt.device)[t] * noise_pred / torch.sqrt(1 - self.alpha_cum_prods.to(xt.device)[t]))
+        mean = mean / torch.sqrt(self.alphas.to(xt.device)[t])
+            
+        with open("debug/debug2.txt", "a") as f:
+            f.write(f"T : {t}\n")
+            f.write(f"beta : {self.betas[t].item()}\n")
+            f.write(f"alpha : {self.alpha_cum_prods[t].item()/self.alpha_cum_prods[t-1].item()}\n")
+            f.write(f"alpha cum prod : {self.alpha_cum_prods[t].item()}\n")
+            f.write(f"xt : {xt}\n")
         
         if t == 0:
             return mean, x0
         else:
-            # variance = (1 - self.one_minus_betas.to(xt.device)[t - 1]) / (1.0 - self.one_minus_betas.to(xt.device)[t])
-            # variance = variance * self.betas.to(xt.device)[t]
-            # sigma = variance ** 0.5
-            # z = torch.randn(xt.shape).to(xt.device)
-            
-            # OR
-            variance = self.betas.to(xt.device)[t]
+            variance = (1 - self.alpha_cum_prods.to(xt.device)[t - 1]) / (1.0 - self.alpha_cum_prods.to(xt.device)[t])
+            variance = variance * self.betas.to(xt.device)[t]
             sigma = variance ** 0.5
             z = torch.randn(xt.shape).to(xt.device)
+            
+            # OR
+            # variance = self.betas.to(xt.device)[t]
+            # sigma = variance ** 0.5
+            # z = torch.randn(xt.shape).to(xt.device)
             return mean + sigma * z, x0

@@ -2,8 +2,8 @@ dataset_params:
   im_path: 'data/train/images'
 
 diffusion_params:
-  num_timesteps : 200
-  model: 'ddim'
+  num_timesteps : 800
+  model: 'ddpm'
   scheduler: 'linear'
 
   beta_start : 0.0001
@@ -28,4 +28,4 @@ train_params:
   num_samples : 1
   num_grid_rows : 1
   lr: 0.0001
-  ckpt_name: 'mnist_linear_200.pth'
+  ckpt_name: 'mnist_linear_800.pth'
