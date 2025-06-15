@@ -11,9 +11,11 @@ from torch.utils.data import DataLoader
 from models.unet.UNet import UNet
 from models.DDPM import DDPM
 from models.DDIM import DDIM
+import time
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+CONFIG_NAME = "T_200/ddpm/mnist_linear"
 
 
 def train(args):
@@ -100,13 +102,19 @@ def train(args):
     optimizer = Adam(model.parameters(), lr=train_config['lr'])
     criterion = torch.nn.MSELoss()
 
+    with open(f"debug/{"-".join(CONFIG_NAME.split("/"))}.txt", "w") as f:
+        f.write("")
+
     #########################
     #   RUN THE TRAINING    #
     #########################
 
     print('Running the training....')
+
+    training_start_time = time.time()
     
     # Run training
+    losses_per_epoch = []
     for epoch_idx in range(num_epochs):
         losses = []
         for im in tqdm(mnist_loader):
@@ -128,35 +136,48 @@ def train(args):
             loss.backward()
             optimizer.step()
 
+        loss_mean = np.mean(losses)
+        losses_per_epoch.append(loss_mean)
+
         print('Finished epoch:{} | Loss : {:.4f}'.format(
             epoch_idx + 1,
-            np.mean(losses),
+            loss_mean,
         ))
         torch.save(model.state_dict(), os.path.join(train_config['task_name'],
                                                     train_config['ckpt_name']))
+
+    training_end_time = time.time()
     
+    print('Done Training')
+
     #########################
     #   TRAINING END    #
     #########################
 
-    print('Done Training')
+    training_time = training_end_time - training_start_time
+    training_hours =  int(training_time//3600)
+    training_minutes = int(training_time%3600 // 60)
+    training_seconds = int(training_time%3600%60)
+    training_time = str(training_hours) + ":" + str(training_minutes) + ":" + str(training_seconds)
+
+    with open(f"debug/{"-".join(CONFIG_NAME.split("/"))}.txt", "w") as f:
+        f.write(f"Training time: {training_time}\n")
 
     # Plot
     plt.figure(figsize=(10, 6))
-    plt.plot(losses, color='red')
-    plt.xlabel("Timesteps (x40)")
+    plt.plot(losses_per_epoch, color='red')
+    plt.xlabel("Epoch")
     plt.ylabel("Training Loss")
-    plt.title(f"MNIST Training with mnist2.yaml")
+    plt.title(f"MNIST Training with {CONFIG_NAME}")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("mnist2_training.png")
-    plt.savefig("mnist2_training.pdf")
+    plt.savefig(f"{"-".join(CONFIG_NAME.split("/"))}.png")
     plt.show()
     
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist_linear.yaml', type=str)
+                        default=f'config/{CONFIG_NAME}.yaml', type=str)
     args = parser.parse_args()
     train(args)

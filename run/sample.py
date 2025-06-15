@@ -8,9 +8,11 @@ from tqdm import tqdm
 from models.unet.UNet import UNet
 from models.DDPM import DDPM
 from models.DDIM import DDIM
+import time
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+CONFIG_NAME = "T_200/ddpm/mnist_linear"
 
 
 def sample(model, scheduler, train_config, model_config, diffusion_config):
@@ -22,6 +24,8 @@ def sample(model, scheduler, train_config, model_config, diffusion_config):
                       model_config['im_channels'],
                       model_config['im_size'],
                       model_config['im_size'])).to(device)
+
+    sample_start_time = time.time()
     
     for i in tqdm(reversed(range(diffusion_config['num_timesteps']))):
         # Get prediction of noise
@@ -40,6 +44,16 @@ def sample(model, scheduler, train_config, model_config, diffusion_config):
         img.save(os.path.join(train_config['task_name'], 'samples', 'x0_{}.png'.format(i)))
         img.close()
 
+    sample_end_time = time.time()
+
+    sample_time = sample_end_time - sample_start_time
+    sample_hours =  int(sample_time//3600)
+    sample_minutes = int(sample_time%3600 // 60)
+    sample_seconds = int(sample_time%3600%60)
+    sample_time = str(sample_hours) + ":" + str(sample_minutes) + ":" + str(sample_seconds)
+
+    with open(f"debug/{"-".join(CONFIG_NAME.split("/"))}.txt", "a") as f:
+        f.write(f"Sampling time: {sample_time}\n")
 
 def infer(args):
     # Read the config file #
@@ -116,6 +130,6 @@ def infer(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm image generation')
     parser.add_argument('--config', dest='config_path',
-                        default='config/mnist_linear.yaml', type=str)
+                        default=f'config/{CONFIG_NAME}.yaml', type=str)
     args = parser.parse_args()
     infer(args)

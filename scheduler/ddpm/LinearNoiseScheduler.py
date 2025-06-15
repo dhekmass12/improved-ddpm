@@ -12,15 +12,7 @@ class LinearNoiseScheduler:
         
         self.betas = torch.linspace(beta_start, beta_end, num_timesteps)
         self.alphas = 1. - self.betas
-        self.alpha_cum_prods = torch.cumprod(self.alphas, dim=0)
-        
-        with open("debug/debug.txt", "w") as f:
-            f.write("Betas:\n")
-            
-        with open("debug/debug.txt", "a") as f:
-            for i in range(len(self.betas)):
-                f.write(f"{i} : {self.betas[i].item()}\n")
-        
+        self.alpha_cum_prods = torch.cumprod(self.alphas, dim=0)        
     
     def add_noise(self, original, noise, t):
         r"""

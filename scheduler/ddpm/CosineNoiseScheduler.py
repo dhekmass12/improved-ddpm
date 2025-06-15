@@ -11,25 +11,15 @@ class CosineNoiseScheduler:
         self.num_timesteps = num_timesteps
         self.s = s
         self.p = p
-        self.alpha_cum_prods = torch.tensor([])
-        self.betas = torch.tensor([])
+        f = torch.linspace(0, self.num_timesteps, self.num_timesteps + 1)
 
-        for t in range(self.num_timesteps):
-            alpha_t_cum_prod = self.f(t) / self.f(0)
-            alpha_t_minus_one_cum_prod = self.f(t - 1) / self.f(0)
-            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 0, 1)
-            alpha_t_minus_one_cum_prod = np.clip(alpha_t_minus_one_cum_prod, 0, 1)
-            new_beta = 1 - (alpha_t_cum_prod / alpha_t_minus_one_cum_prod)
-            new_beta = np.clip(new_beta, 1e-9, 0.999)
+        self.alpha_cum_prods = torch.cos(((f / self.num_timesteps) + self.s) / (1+self.s) * torch.pi / 2) ** self.p
+        self.alpha_cum_prods = self.alpha_cum_prods / self.alpha_cum_prods[0]
+        self.alpha_cum_prods = torch.clip(self.alpha_cum_prods, 1e-9, 0.999)
 
-            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
-            self.betas = torch.cat((self.betas, torch.tensor([new_beta])))
-
-    def f(self, t):        
-        nom = t/self.num_timesteps + self.s
-        denom = 1+self.s
-
-        return pow(math.cos(nom/denom * math.pi / 2), self.p)
+        self.betas = 1 - (self.alpha_cum_prods[1:] / self.alpha_cum_prods[:-1])
+        self.betas = torch.clip(self.betas, 1e-9, 0.999)
+        self.alphas = 1. - self.betas
     
     def add_noise(self, original, noise, t):
         r"""

@@ -10,23 +10,13 @@ class SquareRootNoiseScheduler:
     def __init__(self, num_timesteps, s):
         self.num_timesteps = num_timesteps
         self.s = s
-        self.alpha_cum_prods = torch.tensor([])
-        self.betas = torch.tensor([])
+        t = torch.linspace(0, self.num_timesteps, self.num_timesteps + 1)
 
-        for t in range(self.num_timesteps):            
-            alpha_t_cum_prod = 1 - math.sqrt(t/self.num_timesteps + self.s)
-            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 1e-9, 0.999)
-            
-            if t == 0:
-                beta = 1.0 - alpha_t_cum_prod
-            else:
-                beta = 1.0 - (alpha_t_cum_prod / self.alpha_cum_prods[-1].item())
-
-            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
-            self.betas = torch.cat((self.betas, torch.tensor([beta])))
-        
-    def sigmoid(self, x):
-        return 1 / (1 + math.exp(-x))
+        self.alpha_cum_prods = 1 - torch.sqrt(t/self.num_timesteps + self.s)
+        self.alpha_cum_prods = torch.clip(self.alpha_cum_prods, 1e-9, 0.999)
+        self.betas = 1 - (self.alpha_cum_prods[1:] / self.alpha_cum_prods[:-1])
+        self.betas = torch.clip(self.betas, 1e-9, 0.999)
+        self.alphas = 1. - self.betas
     
     def add_noise(self, original, noise, t):
         r"""

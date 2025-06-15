@@ -1,0 +1,3 @@
+Training time: 0:3:45
+Sampling time: 0:0:17
+FID:  240.36193658269036

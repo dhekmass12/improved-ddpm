@@ -11,25 +11,15 @@ class CosineNoiseScheduler:
         self.num_timesteps = num_timesteps
         self.s = s
         self.p = p
-        self.alpha_cum_prods = torch.tensor([])
-        self.betas = torch.tensor([])
+        f = torch.linspace(0, self.num_timesteps, self.num_timesteps + 1)
 
-        for t in range(self.num_timesteps):
-            alpha_t_cum_prod = self.f(t) / self.f(0)
-            alpha_t_minus_one_cum_prod = self.f(t - 1) / self.f(0)
-            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 0, 1)
-            alpha_t_minus_one_cum_prod = np.clip(alpha_t_minus_one_cum_prod, 0, 1)
-            new_beta = 1 - (alpha_t_cum_prod / alpha_t_minus_one_cum_prod)
-            new_beta = np.clip(new_beta, 1e-9, 0.999)
+        self.alpha_cum_prods = torch.cos(((f / self.num_timesteps) + self.s) / (1+self.s) * torch.pi / 2) ** self.p
+        self.alpha_cum_prods = self.alpha_cum_prods / self.alpha_cum_prods[0]
+        self.alpha_cum_prods = torch.clip(self.alpha_cum_prods, 1e-9, 0.999)
 
-            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
-            self.betas = torch.cat((self.betas, torch.tensor([new_beta])))
-
-    def f(self, t):        
-        nom = t/self.num_timesteps + self.s
-        denom = 1+self.s
-
-        return pow(math.cos(nom/denom * math.pi / 2), self.p)
+        self.betas = 1 - (self.alpha_cum_prods[1:] / self.alpha_cum_prods[:-1])
+        self.betas = torch.clip(self.betas, 1e-9, 0.999)
+        self.alphas = 1. - self.betas
     
     def add_noise(self, original, noise, t):
         r"""
@@ -42,28 +32,15 @@ class CosineNoiseScheduler:
         original_shape = original.shape
         batch_size = original_shape[0]
 
-        alpha_cum_prod = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
-        alpha_minus_one_cum_prod = self.alpha_cum_prods.to(original.device)[t - 1].reshape(batch_size)
+        alpha_cum_prods = self.alpha_cum_prods.to(original.device)[t].reshape(batch_size)
         
         # Reshape till (B,) becomes (B,1,1,1) if image is (B,C,H,W)
         for _ in range(len(original_shape) - 1):
-            alpha_cum_prod = alpha_cum_prod.unsqueeze(-1)
-        for _ in range(len(original_shape) - 1):
-            alpha_minus_one_cum_prod = alpha_minus_one_cum_prod.unsqueeze(-1)
-            
-        xt = (torch.sqrt(alpha_cum_prod.to(original.device)) * original + 
-            torch.sqrt(1 - alpha_cum_prod.to(original.device)) * noise)
-        xt_minus_one = (torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original +
-            torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device)) * noise)
-        
-        term = torch.sqrt(alpha_minus_one_cum_prod.to(original.device)) * original
-        term2 = torch.sqrt(1 - alpha_minus_one_cum_prod.to(original.device))
-        noise = (xt - torch.sqrt(alpha_cum_prod) * original) / torch.sqrt(1 - alpha_cum_prod)
-        
-        xt_minus_one_given_xt_x0 = term + term2 * noise
+            alpha_cum_prods = alpha_cum_prods.unsqueeze(-1)
         
         # Apply and Return Forward process equation
-        return xt_minus_one_given_xt_x0 * xt / xt_minus_one
+        return (torch.sqrt(alpha_cum_prods.to(original.device)) * original
+                + torch.sqrt(1 - alpha_cum_prods.to(original.device)) * noise)
 
     def sample_prev_timestep(self, xt, noise_pred, t):
         r"""

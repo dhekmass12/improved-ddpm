@@ -12,27 +12,17 @@ class SigmoidNoiseScheduler:
         self.s = s
         self.e = e
         self.tau = tau
-        self.alpha_cum_prods = torch.tensor([])
-        self.betas = torch.tensor([])
+        t = torch.linspace(0, self.num_timesteps, self.num_timesteps + 1)
 
-        for t in range(self.num_timesteps):            
-            sig = self.sigmoid((t*(self.e-self.s)+self.s)/self.tau)
-            sig_s = self.sigmoid(self.s/self.tau)
-            sig_e = self.sigmoid(self.e/self.tau)
-            
-            alpha_t_cum_prod = (-sig + sig_e) / (sig_e - sig_s)
-            alpha_t_cum_prod = np.clip(alpha_t_cum_prod, 1e-9, 0.999)
-            
-            if t == 0:
-                beta = 1.0 - alpha_t_cum_prod
-            else:
-                beta = 1.0 - (alpha_t_cum_prod / self.alpha_cum_prods[-1].item())
+        sig = torch.sigmoid((t*(self.e-self.s)+self.s)/self.tau)
+        sig_s = torch.sigmoid(torch.tensor(self.s/self.tau))
+        sig_e = torch.sigmoid(torch.tensor(self.e/self.tau))
 
-            self.alpha_cum_prods = torch.cat((self.alpha_cum_prods, torch.tensor([alpha_t_cum_prod])))
-            self.betas = torch.cat((self.betas, torch.tensor([beta])))
-        
-    def sigmoid(self, x):
-        return 1 / (1 + math.exp(-x))
+        self.alpha_cum_prods = (-sig + sig_e) / (sig_e - sig_s)
+        self.alpha_cum_prods = torch.clip(self.alpha_cum_prods, 1e-9, 0.999)
+        self.betas = 1 - (self.alpha_cum_prods[1:] / self.alpha_cum_prods[:-1])
+        self.betas = torch.clip(self.betas, 1e-9, 0.999)
+        self.alphas = 1. - self.betas
     
     def add_noise(self, original, noise, t):
         r"""
