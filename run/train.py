@@ -15,7 +15,7 @@ import time
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-CONFIG_NAME = "T_200/ddpm/mnist_linear"
+CONFIG_NAME = "T_1000/ddim/mnist_cosine"
 
 
 def train(args):
